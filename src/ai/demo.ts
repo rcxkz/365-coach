@@ -5,14 +5,20 @@ import { upsertCheckin } from "@/data/repos/checkins";
 import { addCustomIngredient, recordMealFeedback, saveUserMeal, setPantry } from "@/data/repos/fuel";
 import { addJournalEntry } from "@/data/repos/journal";
 import { addMemory } from "@/data/repos/memories";
-import { saveProfile } from "@/data/repos/profile";
+import { getProfile, saveProfile } from "@/data/repos/profile";
 import { listShoppingList, markWeekMealCooked, setShoppingStatus } from "@/data/repos/week-plan";
-import { getWorkoutByDate, logSet, setWorkoutStatus } from "@/data/repos/workouts";
+import { createWorkout, logSets } from "@/data/repos/workouts";
 import { resetAllData } from "@/data/reset";
 import { syncLibraries } from "@/data/sync";
 import { addDaysISO, startOfWeekISO, todayInTimeZone } from "@/domain/dates";
 import { buildUserMeal } from "@/domain/meals";
 import { defaultRepsFor } from "@/domain/targets";
+import { EXERCISE_LIBRARY } from "@/data/library";
+import { buildSessionCandidates } from "@/domain/candidates";
+import { composeFallbackSession } from "@/domain/fallback-plan";
+import { availableEquipment, weeklyCeilingReached } from "@/domain/profile";
+import { pickNextSession } from "@/domain/rotation";
+import { PLANS, TEMPLATES_BY_ID } from "@/domain/templates";
 
 /**
  * The public demo's made-up person (Phase 16): Alex, back in the gym
@@ -86,30 +92,67 @@ export async function buildDemo(today: string = todayInTimeZone()): Promise<void
   );
   if (ownMeal.ok) await saveUserMeal(ownMeal.meal);
 
-  // Two weeks of days: the planner decides each one (rest days included —
-  // the weekly ceiling applies), and Alex does most sessions.
+  // Two weeks of days, planned in memory with the same pure functions
+  // the planner uses — rotation, candidate gates, the weekly ceiling —
+  // then written in a few bulk inserts. Going through the full planner
+  // per day took dozens of database round trips each and ran past the
+  // free plan's function time limit, leaving a half-built demo.
+  const setup = (await getProfile()).profile;
+  const rotation = PLANS[setup.training.plan].rotation;
+  const recentKeys: string[] = [];
+  const trained: string[] = [];
   const moods = [4, 3, 4, 2, 3, 4, 5, 3, 4, 3, 2, 4, 4];
   for (let back = 13; back >= 1; back--) {
     const date = addDaysISO(today, -back);
     const i = 13 - back;
-    await generateDay(date);
-    const workout = await getWorkoutByDate(date);
-    // One session skipped on a busy day — real weeks have those.
-    if (workout && back !== 6) {
-      for (const [index, exercise] of workout.exercises.filter((e) => e.included).entries()) {
-        const reps = defaultRepsFor(exercise.targetReps);
+    const resting = weeklyCeilingReached(
+      trained,
+      startOfWeekISO(date),
+      date,
+      setup.training.daysPerWeek,
+    );
+    if (!resting) {
+      const entry = pickNextSession(rotation, recentKeys, "green");
+      const template = TEMPLATES_BY_ID.get(entry.templateId)!;
+      const exercises = composeFallbackSession(
+        template,
+        buildSessionCandidates(template, EXERCISE_LIBRARY, {
+          painFlags: [],
+          readiness: "green",
+          availableEquipment: availableEquipment(setup.training.equipment),
+          protectAreas: setup.protect,
+        }),
+      );
+      // One session skipped on a busy day — real weeks have those.
+      const skipped = back === 6;
+      const workout = await createWorkout({
+        date,
+        title: entry.label,
+        focus: template.purpose,
+        rationale: "Next up in your rotation — planned from your block, ready to go.",
+        durationMinutes: setup.training.sessionMinutes,
+        rotationKey: entry.key,
+        templateId: template.id,
+        status: skipped ? "skipped" : "completed",
+        exercises,
+      });
+      if (!skipped) {
         // Most sets hit the target; every third exercise falls a rep short
         // on the last set — so the review has both kinds of call to make.
-        const shortLast = index % 3 === 2;
-        for (let set = 1; set <= exercise.targetSets; set++) {
-          await logSet(exercise.id, {
-            setNumber: set,
-            reps: shortLast && set === exercise.targetSets ? Math.max(1, reps - 1) : reps,
-            weightKg: exercise.targetWeightKg,
-          });
-        }
+        await logSets(
+          workout.exercises.flatMap((exercise, index) => {
+            const reps = defaultRepsFor(exercise.targetReps);
+            return Array.from({ length: exercise.targetSets }, (_, n) => ({
+              exerciseId: exercise.id,
+              setNumber: n + 1,
+              reps: index % 3 === 2 && n + 1 === exercise.targetSets ? Math.max(1, reps - 1) : reps,
+              weightKg: exercise.targetWeightKg ?? null,
+            }));
+          }),
+        );
+        trained.push(date);
+        recentKeys.unshift(entry.key);
       }
-      await setWorkoutStatus(workout.id, "completed");
     }
     await upsertCheckin(date, {
       energy: moods[i] <= 2 ? "low" : "normal",

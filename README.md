@@ -4,7 +4,7 @@ A calm personal coach for training and food that you run yourself. It plans each
 
 Built with [Claude Code](https://claude.com/claude-code): designed, written, tested and reviewed phase by phase. See [the build log](docs/BUILD_LOG.md).
 
-**[Try the demo](#demo)** · **[Deploy your own](#deploy-your-own)** · [How it works](docs/HOW_IT_WORKS.md)
+**[Try the demo](https://365-coach.vercel.app)** · **[Deploy your own](#deploy-your-own)** · [How it works](docs/HOW_IT_WORKS.md)
 
 <p>
   <img src="docs/screenshots/today.png" width="200" alt="Today: the day's session and dinner">
@@ -38,7 +38,7 @@ Built with [Claude Code](https://claude.com/claude-code): designed, written, tes
 
 ## Demo
 
-The demo is a made-up person, Alex, with two weeks of history. It's open to everyone, resets every night, and runs rules-only (no AI). Demo link: *coming soon*.
+The demo is a made-up person, Alex, with two weeks of history. It's open to everyone, resets every night, and runs rules-only (no AI). **→ [365-coach.vercel.app](https://365-coach.vercel.app)**
 
 To run the demo locally:
 

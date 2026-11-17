@@ -33,6 +33,7 @@ export async function createWorkout(input: {
   rotationKey?: string | null;
   templateId?: string | null;
   returnSession?: number | null;
+  status?: WorkoutStatus;
   exercises: NewExercise[];
 }): Promise<WorkoutWithExercises> {
   const db = await getDb();
@@ -47,6 +48,7 @@ export async function createWorkout(input: {
       rotationKey: input.rotationKey ?? null,
       templateId: input.templateId ?? null,
       returnSession: input.returnSession ?? null,
+      status: input.status ?? "planned",
     })
     .returning();
 
@@ -133,6 +135,21 @@ export async function logSet(
     })
     .returning();
   return row;
+}
+
+/**
+ * Many sets in one write — for building history in bulk (the demo).
+ * The everyday path logs one tap at a time with logSet.
+ */
+export async function logSets(
+  rows: { exerciseId: number; setNumber: number; reps: number; weightKg?: number | null }[],
+): Promise<void> {
+  if (rows.length === 0) return;
+  const db = await getDb();
+  await db
+    .insert(setLogs)
+    .values(rows.map((row) => ({ ...row, weightKg: row.weightKg ?? null })))
+    .onConflictDoNothing();
 }
 
 /**

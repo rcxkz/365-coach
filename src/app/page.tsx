@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
+import { getAnthropic } from "@/ai/client";
 import { pauseTraining, planDay, resumeTraining } from "./actions";
 import { ActionCard } from "@/components/action-card";
 import { CheckinPrompt } from "@/components/checkin-prompt";
@@ -100,7 +101,9 @@ export default async function TodayPage({
   );
 
   const planTarget = workout ? addDaysISO(date, 1) : date;
-  const planLabel = workout ? "Plan tomorrow with AI" : "Plan today with AI";
+  // "with AI" only when there is one — rules-only deployments (and the
+  // demo) plan just as well, and shouldn't promise otherwise.
+  const planLabel = `${workout ? "Plan tomorrow" : "Plan today"}${getAnthropic() ? " with AI" : ""}`;
   const plannedDay = planned === date ? "Today" : "Tomorrow";
   // `paused` needs no notice: the pause card says it all.
   const notice = setup

@@ -26,6 +26,15 @@ async function createDb(): Promise<Db> {
     return drizzle(neon(process.env.DATABASE_URL), { schema });
   }
 
+  // On Vercel the embedded database can't run (read-only, serverless).
+  // Say what's missing instead of crashing somewhere inside PGlite — the
+  // first thing anyone deploying their own copy hits if they skip a step.
+  if (process.env.VERCEL) {
+    throw new Error(
+      "No database: DATABASE_URL is not set. In Vercel, open Storage → Create → Neon Postgres, connect it to this project, then redeploy (the build creates the tables).",
+    );
+  }
+
   const [{ PGlite }, { drizzle }, { migrate }] = await Promise.all([
     import("@electric-sql/pglite"),
     import("drizzle-orm/pglite"),
