@@ -1,0 +1,1 @@
+ALTER TABLE "week_plan_meals" ADD COLUMN "slot" text DEFAULT 'dinner' NOT NULL;

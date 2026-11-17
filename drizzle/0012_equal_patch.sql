@@ -1,0 +1,2 @@
+ALTER TABLE "today_actions" ADD COLUMN "meal_id" text;--> statement-breakpoint
+ALTER TABLE "today_actions" ADD CONSTRAINT "today_actions_meal_id_meals_id_fk" FOREIGN KEY ("meal_id") REFERENCES "public"."meals"("id") ON DELETE set null ON UPDATE no action;

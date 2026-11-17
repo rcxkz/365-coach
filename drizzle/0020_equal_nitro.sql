@@ -1,0 +1,1 @@
+ALTER TABLE "journal_entries" ADD COLUMN "custom" jsonb DEFAULT '{}'::jsonb NOT NULL;

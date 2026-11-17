@@ -1,0 +1,1 @@
+ALTER TABLE "workout_exercises" ADD COLUMN "included" boolean DEFAULT true NOT NULL;
