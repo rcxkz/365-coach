@@ -148,9 +148,17 @@
     border: 1px solid var(--foreground);
     outline: 10px solid color-mix(in srgb, var(--foreground) 6%, var(--background));
     transform: translateZ(0);
+    /* clip, not hidden: a hidden-overflow box can still be scrolled by the
+       browser (focus, scrollIntoView), and tapping a setup chip once
+       scrolled the whole screen out of the frame, leaving it blank. */
     overflow: hidden;
+    overflow: clip;
   }
   .device-screen {
+    /* Anchors absolutely positioned bits (the visually hidden inputs
+       behind chips) to the scrolling screen, so they move with the
+       content instead of sitting outside it. */
+    position: relative;
     display: flex;
     flex-direction: column;
     height: 100%;
