@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { enqueue, flushQueue, queueSize, readQueue } from "./offline-queue";
+import { dropQueued, enqueue, flushQueue, GONE, queueSize, readQueue } from "./offline-queue";
 
 /** Minimal localStorage so the queue can be tested in Node. */
 function installStorage(): void {
@@ -91,5 +91,45 @@ describe("offline queue", () => {
   it("survives corrupt stored data", () => {
     window.localStorage.setItem("p365.pending-sets.v1", "{not json");
     expect(readQueue()).toEqual([]);
+  });
+
+  it("keeps a set tapped while a flush is still running", async () => {
+    enqueue(entry({ setNumber: 1 }));
+    let release!: () => void;
+    const flushing = flushQueue({
+      log: () => new Promise<void>((resolve) => (release = resolve)),
+      unlog: async () => {},
+    });
+    // Signal drops again mid-flush: the next tap's request fails and queues.
+    enqueue(entry({ setNumber: 2 }));
+    release();
+    expect(await flushing).toBe(1);
+    expect(readQueue().map((item) => item.setNumber)).toEqual([2]);
+  });
+
+  it("shares one flush between overlapping triggers", async () => {
+    enqueue(entry());
+    const log = vi.fn(async () => {});
+    const [a, b] = await Promise.all([
+      flushQueue({ log, unlog: async () => {} }),
+      flushQueue({ log, unlog: async () => {} }),
+    ]);
+    expect([a, b]).toEqual([0, 0]);
+    expect(log).toHaveBeenCalledTimes(1);
+  });
+
+  it("forgets an older queued tap once a later one reaches the server", () => {
+    enqueue(entry({ setNumber: 1, reps: 8 }));
+    enqueue(entry({ setNumber: 2 }));
+    // Back on signal, the user undoes set 1 and it succeeds directly.
+    dropQueued(1, 1);
+    expect(readQueue().map((item) => item.setNumber)).toEqual([2]);
+  });
+
+  it("drops a set whose exercise no longer exists instead of retrying forever", async () => {
+    enqueue(entry());
+    const remaining = await flushQueue({ log: async () => GONE, unlog: async () => {} });
+    expect(remaining).toBe(0);
+    expect(queueSize()).toBe(0);
   });
 });

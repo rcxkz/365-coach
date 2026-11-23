@@ -7,6 +7,8 @@ export type DayActionDraft = {
   workoutId?: number | null;
   /** Set on a dinner action so ticking it records the meal as cooked. */
   mealId?: string | null;
+  /** Carried over when a re-plan keeps an action the user already ticked. */
+  status?: "pending" | "done" | "skipped" | "moved";
 };
 
 /**

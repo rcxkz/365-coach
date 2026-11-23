@@ -9,11 +9,14 @@ import {
   getMetricTrends,
 } from "@/data/repos/metrics";
 import { listOpenPainFlags } from "@/data/repos/pain";
+import { getProfile } from "@/data/repos/profile";
+import type { PlanStyle } from "@/domain/templates";
 import { evaluateBlock1, type CriterionStatus } from "@/domain/block1";
 import { addDaysISO, todayInTimeZone } from "@/domain/dates";
 import {
   METRIC_KINDS,
   METRIC_SPECS,
+  type MetricKind,
   type MetricTrend,
 } from "@/domain/metrics";
 import { cn } from "@/lib/utils";
@@ -59,6 +62,10 @@ function TrendNote({ trend }: { trend: MetricTrend | undefined }) {
   );
 }
 
+const BLOCK_PLANS = new Set<PlanStyle>(["rebuild", "calisthenics"]);
+const UNIVERSAL_CRITERIA = new Set(["consistency", "pain"]);
+const BLOCK_ONLY_METRICS = new Set<MetricKind>(["pullup_max", "weighted_pullup", "dip_max", "weighted_dip", "dead_hang"]);
+
 export default async function ProgressPage({
   searchParams,
 }: {
@@ -67,12 +74,17 @@ export default async function ProgressPage({
   const { saved, error } = await searchParams;
   const today = todayInTimeZone();
 
-  const [trends, recentSessions, openPain, latestMobility] = await Promise.all([
+  const [trends, recentSessions, openPain, latestMobility, { profile }] = await Promise.all([
     getMetricTrends(),
     countCompletedWorkoutsSince(addDaysISO(today, -14)),
     listOpenPainFlags(),
     getLatestMetric("mobility_score"),
+    getProfile(),
   ]);
+  // The Block 1 → Block 2 checklist belongs to the Rebuild and
+  // Calisthenics plans it was written for. Other plans see the parts
+  // that fit everyone, and only the numbers that suit them.
+  const blockPlan = BLOCK_PLANS.has(profile.training.plan);
 
   const block1 = evaluateBlock1({
     trends,
@@ -82,6 +94,10 @@ export default async function ProgressPage({
       severity: flag.severity,
     })),
   });
+
+  const criteria = blockPlan
+    ? block1.criteria
+    : block1.criteria.filter((criterion) => UNIVERSAL_CRITERIA.has(criterion.id));
 
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-4 py-8">
@@ -95,7 +111,7 @@ export default async function ProgressPage({
       <header className="mt-4 mb-6">
         <h1 className="text-[1.75rem] font-normal leading-none">Progress</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Block 1 — Rebuild. Numbers when you have them; nothing here is owed.
+          {blockPlan ? "Block 1 — Rebuild. " : ""}Numbers when you have them; nothing here is owed.
         </p>
       </header>
 
@@ -113,10 +129,10 @@ export default async function ProgressPage({
 
       <section className="mb-8">
         <h2 className="eyebrow mb-3">
-          Ready for Block 2 when
+          {blockPlan ? "Ready for Block 2 when" : "Going well when"}
         </h2>
         <ul className="flex flex-col gap-3">
-          {block1.criteria.map((criterion) => (
+          {criteria.map((criterion) => (
             <li key={criterion.id} className="flex gap-2.5">
               <span
                 className={cn(
@@ -138,11 +154,13 @@ export default async function ProgressPage({
             </li>
           ))}
         </ul>
+        {blockPlan && (
         <p className="mt-3 text-xs text-muted-foreground">
           {block1.ready
             ? "Everything's pointing the right way — worth talking about Block 2."
             : `${block1.metCount} of ${block1.total} in place. Block 1 runs 6–8 weeks; there's no rush on it.`}
         </p>
+        )}
       </section>
 
       <section className="mb-8">
@@ -170,7 +188,9 @@ export default async function ProgressPage({
           Record a number
         </h2>
         <ul className="flex flex-col gap-3">
-          {METRIC_KINDS.filter((kind) => kind !== "mobility_score").map(
+          {METRIC_KINDS.filter(
+            (kind) => kind !== "mobility_score" && (blockPlan || !BLOCK_ONLY_METRICS.has(kind)),
+          ).map(
             (kind) => {
               const spec = METRIC_SPECS[kind];
               return (

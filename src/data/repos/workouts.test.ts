@@ -12,6 +12,7 @@ import {
   setIncludedExercises,
   setWorkoutStatus,
   updateWorkoutDuration,
+  workoutExerciseExists,
 } from "./workouts";
 
 function foundationWorkout(date: string) {
@@ -203,5 +204,30 @@ describe("listTrainedDates", () => {
 
     const dates = (await listTrainedDates("2025-03-10")).filter((d) => d.startsWith("2025-03"));
     expect(dates).toEqual(["2025-03-03", "2025-03-01"]);
+  });
+});
+
+describe("createWorkout when the exercises can't be saved", () => {
+  it("leaves no empty session behind to block planning", async () => {
+    await expect(
+      createWorkout({
+        date: "2031-01-06",
+        title: "Broken",
+        exercises: [
+          // Not in the library: the foreign key refuses it, as on a fresh
+          // copy whose libraries never loaded.
+          { name: "Ghost", libraryExerciseId: "not_in_library", targetSets: 3, targetReps: "8" },
+        ],
+      }),
+    ).rejects.toThrow();
+    expect(await getWorkoutByDate("2031-01-06")).toBeNull();
+  });
+});
+
+describe("workoutExerciseExists", () => {
+  it("knows when a queued set's exercise has gone", async () => {
+    const workout = await createWorkout(foundationWorkout("2031-01-07"));
+    expect(await workoutExerciseExists(workout.exercises[0].id)).toBe(true);
+    expect(await workoutExerciseExists(999_999)).toBe(false);
   });
 });

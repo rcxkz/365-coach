@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isValidSession, safeEqual, sessionTokenFor } from "./auth";
+import { authConfig, isValidSession, safeEqual, sessionTokenFor } from "./auth";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -24,6 +24,17 @@ describe("isValidSession", () => {
     expect(await isValidSession("forged")).toBe(false);
   });
 
+  it("opens the demo, but never a deployment with a passcode", async () => {
+    vi.stubEnv("DEMO_MODE", "1");
+    vi.stubEnv("APP_PASSCODE", "");
+    vi.stubEnv("AUTH_SECRET", "");
+    expect(await isValidSession(undefined)).toBe(true);
+    // DEMO_MODE left on by mistake on a real deployment: still locked.
+    vi.stubEnv("APP_PASSCODE", "pass");
+    vi.stubEnv("AUTH_SECRET", "s3cret");
+    expect(await isValidSession(undefined)).toBe(false);
+  });
+
   it("signs every device out when the passcode changes", async () => {
     const old = await sessionTokenFor({ secret: "s3cret", passcode: "old" });
     vi.stubEnv("AUTH_SECRET", "s3cret");
@@ -31,8 +42,31 @@ describe("isValidSession", () => {
     expect(await isValidSession(old)).toBe(false);
   });
 
+  it("needs only the passcode on a deployment with a database", async () => {
+    vi.stubEnv("AUTH_SECRET", "");
+    vi.stubEnv("APP_PASSCODE", "pass");
+    vi.stubEnv("DATABASE_URL", "postgres://user:long-secret@host/db");
+    const config = authConfig();
+    expect(config).not.toBeNull();
+    expect(config!.secret).toContain("long-secret");
+    const token = await sessionTokenFor(config!);
+    expect(await isValidSession(token)).toBe(true);
+    // A cookie signed some other way doesn't get in.
+    expect(await isValidSession(await sessionTokenFor({ secret: "guess", passcode: "pass" }))).toBe(false);
+  });
+
+  it("still fails closed with a passcode but nothing to sign with", async () => {
+    vi.stubEnv("AUTH_SECRET", "");
+    vi.stubEnv("DATABASE_URL", "");
+    vi.stubEnv("APP_PASSCODE", "pass");
+    vi.stubEnv("NODE_ENV", "production");
+    expect(authConfig()).toBeNull();
+    expect(await isValidSession(undefined)).toBe(false);
+  });
+
   it("fails closed outside development when unconfigured", async () => {
     vi.stubEnv("AUTH_SECRET", "");
+    vi.stubEnv("DATABASE_URL", "");
     vi.stubEnv("APP_PASSCODE", "");
     vi.stubEnv("NODE_ENV", "production");
     expect(await isValidSession(undefined)).toBe(false);

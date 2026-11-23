@@ -7,9 +7,9 @@
  * The passcode is part of the signed message, so changing APP_PASSCODE
  * signs every device out — the way to revoke a lost phone.
  *
- * Unconfigured (no AUTH_SECRET or APP_PASSCODE): open in development,
- * closed in production. A deploy that forgot its env vars must not
- * publish the app to the internet.
+ * Unconfigured (no APP_PASSCODE, or nothing to sign with): open in
+ * development, closed in production. A deploy that forgot its env vars
+ * must not publish the app to the internet.
  */
 export const SESSION_COOKIE = "p365_session";
 
@@ -18,15 +18,25 @@ const encoder = new TextEncoder();
 type AuthConfig = { secret: string; passcode: string };
 
 export function authConfig(): AuthConfig | null {
-  const secret = process.env.AUTH_SECRET?.trim();
   const passcode = process.env.APP_PASSCODE?.trim();
-  return secret && passcode ? { secret, passcode } : null;
+  if (!passcode) return null;
+  // AUTH_SECRET is optional: without it the cookie is signed with the
+  // database connection string, a long server-only secret every real
+  // deployment already has. So deploying needs one value — the
+  // passcode. (Changing the database password then signs devices out,
+  // the same as changing the passcode.)
+  const explicit = process.env.AUTH_SECRET?.trim();
+  const database = process.env.DATABASE_URL?.trim();
+  const secret = explicit || (database ? `p365-db-key:${database}` : "");
+  return secret ? { secret, passcode } : null;
 }
 
 /** The gate is off for `next dev` with nothing configured, and for the public demo. */
 export function authDisabled(): boolean {
-  // The public demo is open by design (Phase 16).
-  if (process.env.DEMO_MODE === "1") return true;
+  // The public demo is open by design (Phase 16) — but only where no
+  // passcode is set, so a real deployment with DEMO_MODE switched on by
+  // mistake stays locked (the same rule the demo reset follows).
+  if (process.env.DEMO_MODE === "1" && !process.env.APP_PASSCODE?.trim()) return true;
   return !authConfig() && process.env.NODE_ENV === "development";
 }
 

@@ -32,6 +32,7 @@ export async function replaceDayActions(
         rationale: draft.rationale ?? null,
         workoutId: draft.workoutId ?? null,
         mealId: draft.mealId ?? null,
+        ...(draft.status ? { status: draft.status } : {}),
       })),
     )
     .returning();

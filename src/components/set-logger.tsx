@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Minus, Plus, X } from "lucide-react";
+import { Check, Minus, Plus } from "lucide-react";
 import { logSetAction, unlogSetAction } from "@/app/workout/actions";
 import { Button } from "@/components/ui/button";
 import type { SetLog } from "@/data/repos/workouts";
 import { defaultRepsFor, measureFor } from "@/domain/targets";
-import { enqueue } from "@/lib/offline-queue";
+import { dropQueued, enqueue } from "@/lib/offline-queue";
 
 type LocalSet = { setNumber: number; reps: number; weightKg: number | null };
 
@@ -59,6 +59,7 @@ export function SetLogger({
     startTransition(async () => {
       try {
         await logSetAction(exerciseId, setNumber, reps, weight);
+        dropQueued(exerciseId, setNumber);
       } catch {
         enqueue({
           action: "log",
@@ -81,6 +82,7 @@ export function SetLogger({
     startTransition(async () => {
       try {
         await unlogSetAction(exerciseId, set.setNumber);
+        dropQueued(exerciseId, set.setNumber);
       } catch {
         enqueue({
           action: "unlog",
@@ -102,7 +104,9 @@ export function SetLogger({
           return (
             <Button
               key={setNumber}
-              variant={set ? "secondary" : "outline"}
+              // Done reads at a glance mid-set: filled with a tick, against
+              // outlined to-do sets. Tapping a done set still undoes it.
+              variant={set ? "default" : "outline"}
               size="sm"
               disabled={disabled}
               onClick={() => (set ? unlogSet(set) : logSet(setNumber))}
@@ -115,7 +119,7 @@ export function SetLogger({
               {set
                 ? `${measure.unit === "reps" ? set.reps : measure.format(set.reps)}${set.weightKg ? ` × ${set.weightKg}kg` : ""}`
                 : `Set ${setNumber}`}
-              {set && <X className="h-3 w-3 opacity-60" />}
+              {set && <Check className="h-3.5 w-3.5" aria-hidden />}
             </Button>
           );
         })}

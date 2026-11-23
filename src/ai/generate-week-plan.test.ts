@@ -95,6 +95,24 @@ describe("generateWeekPlan without AI", () => {
     expect(await uncookedWeekMeals(week)).toHaveLength(WEEK_POOL_SIZE - 1);
   });
 
+  it("keeps cooked meals even when the new shape has no room for them", async () => {
+    const week = "2026-08-31";
+    await generateWeekPlan(week, { dinners: 5, lunches: 1 });
+    const rows = await listWeekPlan(week);
+    const dinners = rows.filter((row) => row.slot === "dinner").slice(0, 4);
+    const lunch = rows.find((row) => row.slot === "lunch")!;
+    for (const row of [...dinners, lunch]) {
+      await markWeekMealCooked(week, row.mealId, "2026-09-01");
+    }
+
+    // Fewer dinners than already cooked, and no lunch preps at all.
+    await generateWeekPlan(week, { dinners: 3, lunches: 0 });
+    const after = await listWeekPlan(week);
+    for (const row of [...dinners, lunch]) {
+      expect(after.find((kept) => kept.mealId === row.mealId)?.cookedOn).toBe("2026-09-01");
+    }
+  });
+
   it("still finds dinner when the week's meals can't be cooked", async () => {
     // A week planned but nothing bought: pool meals fail the pantry gate,
     // so the night has to widen back to the library rather than go blank.

@@ -17,9 +17,11 @@ import {
   logSet,
   setIncludedExercises,
   setWorkoutStatus,
+  workoutExerciseExists,
 } from "@/data/repos/workouts";
 import { shortenWorkout } from "@/domain/shorten";
 import { todayInTimeZone } from "@/domain/dates";
+import { GONE } from "@/lib/offline-queue";
 import { requireSession } from "@/lib/require-session";
 
 function refresh() {
@@ -43,8 +45,11 @@ export async function logSetAction(
   setNumber: number,
   reps: number,
   weightKg: number | null,
-): Promise<void> {
+): Promise<typeof GONE | void> {
   await requireSession();
+  // The exercise can be gone by the time a queued tap replays (removed
+  // with "Not for me", or a different session): nothing to log against.
+  if (!(await workoutExerciseExists(exerciseId))) return GONE;
   await logSet(exerciseId, { setNumber, reps, weightKg });
   refresh();
 }

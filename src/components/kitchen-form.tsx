@@ -158,7 +158,7 @@ export function KitchenForm({
                       onClick={() => cycle(ingredient)}
                       aria-label={`${formatIngredient(ingredient)}: ${state === "low" ? "running low" : state === "in" ? "in" : "not in"}`}
                       className={cn(
-                        "border px-3 py-1.5 text-sm transition-colors",
+                        "min-h-11 border px-3 py-2 text-sm transition-colors",
                         state === "in" && "border-foreground bg-foreground text-background",
                         state === "low" && "border-signal-ease bg-signal-ease/10 text-foreground",
                         !state && "border-border text-muted-foreground hover:border-foreground/40",

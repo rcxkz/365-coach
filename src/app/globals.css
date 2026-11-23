@@ -105,3 +105,60 @@
     min-height: min(100lvh, calc(100% + env(safe-area-inset-top)));
   }
 }
+
+/*
+ * Built for a phone. On a phone the stage, frame and screen wrappers
+ * vanish from layout (display: contents) and the app fills the screen.
+ * On a wide screen the app runs in a phone-sized frame beside a short
+ * panel. The frame is transformed, so the app's fixed tab bar and save
+ * bar pin to the frame's bottom edge instead of the browser window, and
+ * the screen inside scrolls on its own.
+ */
+.device-stage,
+.device-frame,
+.device-screen {
+  display: contents;
+}
+.device-aside {
+  display: none;
+}
+@media (min-width: 900px) {
+  body {
+    height: 100vh;
+    overflow: hidden;
+  }
+  .device-stage {
+    display: flex;
+    height: 100vh;
+    align-items: center;
+    justify-content: center;
+    gap: 72px;
+    padding: 24px 32px;
+  }
+  .device-aside {
+    display: block;
+    width: 460px;
+  }
+  .device-frame {
+    display: block;
+    position: relative;
+    width: 390px;
+    height: min(844px, calc(100vh - 48px));
+    flex-shrink: 0;
+    border: 1px solid var(--foreground);
+    outline: 10px solid color-mix(in srgb, var(--foreground) 6%, var(--background));
+    transform: translateZ(0);
+    overflow: hidden;
+  }
+  .device-screen {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+  .device-screen::-webkit-scrollbar {
+    display: none;
+  }
+}

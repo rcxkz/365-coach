@@ -35,6 +35,8 @@ export default async function SettingsPage({
 }) {
   const { saved } = await searchParams;
   const publicKey = vapidPublicKey();
+  // The morning job only runs where Vercel can authenticate it.
+  const morningJobOn = Boolean(process.env.CRON_SECRET?.trim());
   const [notes, exercises, meals] = await Promise.all([
     listMemories({ domain: "fitness", status: "active" }),
     listRuledOutExercises(),
@@ -73,17 +75,23 @@ export default async function SettingsPage({
       )}
 
       <section className="border-t border-border py-4">
-        <h2 className="eyebrow mb-1">Morning reminder</h2>
+        <h2 className="eyebrow mb-1">Morning planning and reminder</h2>
         <p className="mb-4 text-sm text-muted-foreground">
-          One notification between 7 and 8am with today&apos;s session.
-          Nothing on days you&apos;re paused, and never more than one.
+          Each morning the day gets planned before you wake, and one notification between 7
+          and 8am says what&apos;s on. Nothing on days you&apos;re paused, and never more than one.
         </p>
-        {publicKey ? (
+        {!morningJobOn ? (
+          <p className="text-sm text-muted-foreground">
+            Off on this deployment, so today plans when you tap &ldquo;Plan today&rdquo;. To switch
+            it on, add CRON_SECRET in Vercel (Settings → Environment Variables; any long random
+            text) and redeploy. The README has the details.
+          </p>
+        ) : publicKey ? (
           <ReminderToggle publicKey={publicKey} />
         ) : (
           <p className="text-sm text-muted-foreground">
-            Not set up on this deployment yet: it needs VAPID keys in the
-            environment (see the README).
+            Morning planning is on. The notification needs two more keys (VAPID) in the
+            environment; the README shows how to make them.
           </p>
         )}
       </section>

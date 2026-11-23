@@ -78,7 +78,7 @@ export const SESSION_TEMPLATES: SessionTemplate[] = [
     id: "upper_strength",
     name: "Upper Strength",
     purpose:
-      "Develop upper-body strength while progressing calisthenics goals.",
+      "Develop upper-body strength: presses, pulls and a strong trunk.",
     sessionType: "strength",
     targetDurationMinutes: 60,
     recoveryCost: 3,

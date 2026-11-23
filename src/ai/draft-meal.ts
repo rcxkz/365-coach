@@ -1,9 +1,7 @@
-import { RateLimitError } from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { BEHAVIOURAL_CORE } from "./behavioural-core";
 import { getProfile } from "@/data/repos/profile";
-import { getAnthropic, MODEL_FALLBACK, MODEL_PRIMARY } from "./client";
+import { getAi } from "./client";
 import { fuelVoice } from "./voices/fuel";
 import { listCustomIngredients } from "@/data/repos/fuel";
 import { INGREDIENTS, ingredientKey, PROTEIN_FOCUS, type UserMealInput } from "@/domain/meals";
@@ -38,7 +36,7 @@ export type MealDraftResult =
 const MAX_INPUT = 6000;
 
 export async function draftMealFromText(text: string): Promise<MealDraftResult> {
-  const client = getAnthropic();
+  const client = getAi();
   if (!client) return { ok: false, reason: "not_configured" };
   const input = text.trim().slice(0, MAX_INPUT);
   if (input.length < 3) return { ok: false, reason: "unreadable" };
@@ -57,22 +55,15 @@ export async function draftMealFromText(text: string): Promise<MealDraftResult> 
 
   try {
     const voice = fuelVoice((await getProfile()).profile);
-    const call = (model: string) =>
-      client.messages.parse({
-        model,
-        max_tokens: 2000,
-        system: `${BEHAVIOURAL_CORE}\n\n${voice}`,
-        messages: [{ role: "user", content: prompt }],
-        output_config: { format: zodOutputFormat(MealDraft) },
-      });
-    let response;
-    try {
-      response = await call(MODEL_PRIMARY);
-    } catch (error) {
-      if (!(error instanceof RateLimitError)) throw error;
-      response = await call(MODEL_FALLBACK);
-    }
-    const draft = response.parsed_output;
+    const result = await client.structured({
+      label: "draftMeal",
+      system: `${BEHAVIOURAL_CORE}\n\n${voice}`,
+      prompt: prompt,
+      effort: "low",
+      schema: MealDraft,
+      name: "meal_draft",
+    });
+    const draft = result;
     if (!draft || draft.name.toLowerCase() === "unreadable") {
       return { ok: false, reason: "unreadable" };
     }

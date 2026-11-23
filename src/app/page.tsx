@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
-import { getAnthropic } from "@/ai/client";
+import { getAi } from "@/ai/client";
 import { pauseTraining, planDay, resumeTraining } from "./actions";
 import { ActionCard } from "@/components/action-card";
 import { CheckinPrompt } from "@/components/checkin-prompt";
@@ -25,9 +25,9 @@ const PLAN_NOTICES: Record<string, string> = {
 /** Honest, non-blaming reasons the rotation planned instead of the AI. */
 const FALLBACK_NOTES: Record<string, string> = {
   not_configured:
-    "planned from your rotation. AI coaching isn't connected yet — add an ANTHROPIC_API_KEY to turn it on.",
+    "planned from your rotation. AI coaching isn't connected yet — add your own AI key to turn it on (the README shows how).",
   needs_credit:
-    "planned from your rotation. AI coaching is paused — the Anthropic API account is out of credit.",
+    "planned from your rotation. AI coaching is paused — the AI account is out of credit.",
   ai_unavailable:
     "planned from your rotation — the AI coach wasn't reachable just now. The session stands on its own.",
   recovery_day:
@@ -95,21 +95,27 @@ export default async function TodayPage({
   const feeling = currentFeeling(journal.map(toJournalEntry), date);
   // While paused, training is off the list. Project steps planned
   // before Mission was removed (doc 06) are never shown.
+  const trainedToday =
+    workout?.status === "completed" ||
+    (workout?.exercises.some((exercise) => exercise.sets.length > 0) ?? false);
   const actions = allActions.filter(
     (action) =>
-      action.kind !== "project" && !(pause && action.kind === "workout"),
+      action.kind !== "project" && !(pause && action.kind === "workout" && !trainedToday),
   );
 
   const planTarget = workout ? addDaysISO(date, 1) : date;
   // "with AI" only when there is one — rules-only deployments (and the
   // demo) plan just as well, and shouldn't promise otherwise.
-  const planLabel = `${workout ? "Plan tomorrow" : "Plan today"}${getAnthropic() ? " with AI" : ""}`;
+  const aiOn = getAi() !== null;
+  const planLabel = `${workout ? "Plan tomorrow" : "Plan today"}${aiOn ? " with AI" : ""}`;
   const plannedDay = planned === date ? "Today" : "Tomorrow";
   // `paused` needs no notice: the pause card says it all.
   const notice = setup
     ? "Saved. Every plan from now on follows your setup."
     : resumed
-    ? "Welcome back. The first few sessions are lighter on purpose — today's is ready when you are."
+    ? trainedToday
+      ? "Welcome back. The next few sessions are lighter on purpose, starting with the next one."
+      : "Welcome back. The first few sessions are lighter on purpose — today's is ready when you are."
     : skipped
     ? "Session skipped. It stays due and comes round again — the rotation hasn't moved past it."
     : adapted
@@ -237,10 +243,19 @@ export default async function TodayPage({
 
       {actions.length === 0 ? (
         <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-          <p>Nothing planned yet for today.</p>
-          {process.env.NODE_ENV === "development" && (
-            <p className="mt-2 font-mono text-xs">npm run db:seed</p>
-          )}
+          <p>Nothing planned for today yet.</p>
+          <p className="mt-1">One tap plans the session and tonight&apos;s dinner from your setup.</p>
+          <form className="mt-4">
+            <PendingButton
+              pendingLabel={aiOn ? "Planning… about half a minute" : "Planning…"}
+              formAction={planDay.bind(null, planTarget)}
+              className="w-full"
+              type="submit"
+            >
+              {aiOn && <Sparkles className="h-4 w-4" />}
+              {planLabel}
+            </PendingButton>
+          </form>
         </div>
       ) : (
         <ul className="flex flex-col divide-y divide-border border-y border-border">
@@ -252,17 +267,20 @@ export default async function TodayPage({
         </ul>
       )}
 
-      <form className="mt-6">
-        <PendingButton pendingLabel="Planning… about half a minute"
-          formAction={planDay.bind(null, planTarget)}
-          variant="outline"
-          className="w-full"
-          type="submit"
-        >
-          <Sparkles className="h-4 w-4" />
-          {planLabel}
-        </PendingButton>
-      </form>
+      {actions.length > 0 && (
+        <form className="mt-6">
+          <PendingButton
+            pendingLabel={aiOn ? "Planning… about half a minute" : "Planning…"}
+            formAction={planDay.bind(null, planTarget)}
+            variant="outline"
+            className="w-full"
+            type="submit"
+          >
+            {aiOn && <Sparkles className="h-4 w-4" />}
+            {planLabel}
+          </PendingButton>
+        </form>
+      )}
 
       <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
         <Link href="/review" className="underline-offset-4 hover:underline">

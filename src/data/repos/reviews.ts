@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, gte, lte } from "drizzle-orm";
 import { getDb } from "../db";
+import { todayInTimeZone } from "@/domain/dates";
 import {
   painFlags,
   setLogs,
@@ -134,7 +135,12 @@ export async function getSessionsBetween(
   return sessions;
 }
 
-/** Pain flags opened before the window closed and not resolved before it opened. */
+/**
+ * Pain flags opened before the window closed and not resolved before it
+ * opened, with days in the user's time zone. A flag resolved after the
+ * week ended was still open that week, so it reads as unresolved: the
+ * review mustn't call it "cleared", or step up the exercises it touches.
+ */
 export async function getPainForWeek(
   from: string,
   to: string,
@@ -143,21 +149,20 @@ export async function getPainForWeek(
 > {
   const db = await getDb();
   const rows = await db.select().from(painFlags).orderBy(desc(painFlags.createdAt));
-  const windowStart = new Date(`${from}T00:00:00Z`).getTime();
-  const windowEnd = new Date(`${to}T23:59:59Z`).getTime();
+  const day = (moment: Date) => todayInTimeZone(undefined, moment);
 
   return rows
-    .filter((flag) => {
-      const opened = flag.createdAt.getTime();
-      const resolved = flag.resolvedAt?.getTime() ?? null;
-      if (opened > windowEnd) return false;
-      return resolved === null || resolved >= windowStart;
-    })
     .map((flag) => ({
+      flag,
+      openedOn: day(flag.createdAt),
+      resolvedOn: flag.resolvedAt ? day(flag.resolvedAt) : null,
+    }))
+    .filter(({ openedOn, resolvedOn }) => openedOn <= to && (resolvedOn === null || resolvedOn >= from))
+    .map(({ flag, openedOn, resolvedOn }) => ({
       location: flag.location,
       severity: flag.severity,
-      openedOn: flag.createdAt.toISOString().slice(0, 10),
-      resolvedOn: flag.resolvedAt?.toISOString().slice(0, 10) ?? null,
+      openedOn,
+      resolvedOn: resolvedOn !== null && resolvedOn <= to ? resolvedOn : null,
     }));
 }
 

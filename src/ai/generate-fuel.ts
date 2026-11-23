@@ -1,9 +1,7 @@
-import { RateLimitError } from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { BEHAVIOURAL_CORE } from "./behavioural-core";
 import { getProfile } from "@/data/repos/profile";
-import { getAnthropic, MODEL_FALLBACK, MODEL_PRIMARY } from "./client";
+import { getAi } from "./client";
 import { fuelVoice } from "./voices/fuel";
 import {
   listMealsForDiet,
@@ -150,7 +148,7 @@ export async function generateFuelDay(date: string): Promise<FuelResult> {
   }
 
   const allowed = new Set(candidates.map((candidate) => candidate.meal.id));
-  const client = getAnthropic();
+  const client = getAi();
 
   if (client) {
     try {
@@ -162,24 +160,16 @@ export async function generateFuelDay(date: string): Promise<FuelResult> {
         feeling: describeFeeling(feeling),
       });
       const voice = fuelVoice((await getProfile()).profile);
-      const call = (model: string) =>
-        client.messages.parse({
-          model,
-          max_tokens: 1200,
-          system: `${BEHAVIOURAL_CORE}\n\n${voice}`,
-          messages: [{ role: "user", content: prompt }],
-          output_config: { format: zodOutputFormat(FuelChoice) },
-        });
+      const result = await client.structured({
+        label: "generateFuelDay",
+        system: `${BEHAVIOURAL_CORE}\n\n${voice}`,
+        prompt: prompt,
+        effort: "low",
+        schema: FuelChoice,
+        name: "fuel_choice",
+      });
 
-      let response;
-      try {
-        response = await call(MODEL_PRIMARY);
-      } catch (error) {
-        if (!(error instanceof RateLimitError)) throw error;
-        response = await call(MODEL_FALLBACK);
-      }
-
-      const choice = response.parsed_output;
+      const choice = result;
       if (choice && allowed.has(choice.dinnerMealId)) {
         const alternativeId =
           choice.alternativeMealId && allowed.has(choice.alternativeMealId)

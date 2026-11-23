@@ -9,6 +9,9 @@ import {
   getWeeklyReview,
   saveWeeklyReview,
 } from "./reviews";
+import { eq } from "drizzle-orm";
+import { getDb } from "../db";
+import { painFlags } from "../schema";
 import { addPainFlag, resolvePainFlag } from "./pain";
 import { createWorkout, logSet, setWorkoutStatus } from "./workouts";
 import { summariseWeek } from "../../domain/week-review";
@@ -111,6 +114,34 @@ describe("reviews repo", () => {
     const afterResolve = await getPainForWeek("2020-01-01", "2030-01-01");
     const shoulder = afterResolve.find((p) => p.location === "shoulder");
     expect(shoulder?.resolvedOn).not.toBeNull();
+  });
+
+  it("treats pain resolved after the week ended as still open that week", async () => {
+    const flag = await addPainFlag({ location: "knee", severity: 3 });
+    // Opened on the Wednesday of the week, resolved the Monday after.
+    const db = await getDb();
+    await db
+      .update(painFlags)
+      .set({
+        createdAt: new Date("2026-07-08T09:00:00Z"),
+        resolvedAt: new Date("2026-07-13T09:00:00Z"),
+      })
+      .where(eq(painFlags.id, flag.id));
+
+    const knee = (await getPainForWeek(WEEK_START, WEEK_END)).find((p) => p.location === "knee");
+    expect(knee).toMatchObject({ openedOn: "2026-07-08", resolvedOn: null });
+  });
+
+  it("dates pain by the user's day, not UTC's", async () => {
+    const flag = await addPainFlag({ location: "ankle", severity: 2 });
+    const db = await getDb();
+    // 23:30 UTC on Sunday 12 July is 00:30 on Monday 13 July in London.
+    await db
+      .update(painFlags)
+      .set({ createdAt: new Date("2026-07-12T23:30:00Z") })
+      .where(eq(painFlags.id, flag.id));
+    const ankle = (await getPainForWeek(WEEK_START, WEEK_END)).find((p) => p.location === "ankle");
+    expect(ankle).toBeUndefined();
   });
 
   it("returns the most recent review for the planner", async () => {

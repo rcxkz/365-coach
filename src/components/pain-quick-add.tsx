@@ -15,6 +15,7 @@ export function PainQuickAdd({ protect = [] }: { protect?: string[] }) {
   const locations = [...new Set([...protect, ...COMMON])];
   const [location, setLocation] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [failed, setFailed] = useState(false);
 
   if (!location) {
     return (
@@ -31,6 +32,11 @@ export function PainQuickAdd({ protect = [] }: { protect?: string[] }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-sm capitalize">{location.replace(/_/g, " ")} — how strong?</span>
+      {failed && (
+        <span role="status" className="basis-full text-sm text-muted-foreground">
+          That didn&apos;t save. Try again when you&apos;ve got signal.
+        </span>
+      )}
       {[1, 2, 3, 4, 5].map((severity) => (
         <Button
           key={severity}
@@ -39,8 +45,13 @@ export function PainQuickAdd({ protect = [] }: { protect?: string[] }) {
           disabled={isPending}
           onClick={() =>
             startTransition(async () => {
-              await addPainFlagAction(location, severity);
-              setLocation(null);
+              try {
+                await addPainFlagAction(location, severity);
+                setLocation(null);
+                setFailed(false);
+              } catch {
+                setFailed(true);
+              }
             })
           }
         >

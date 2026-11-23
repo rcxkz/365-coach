@@ -78,40 +78,74 @@ export function queueSize(): number {
   return readQueue().length;
 }
 
+const sameSet = (a: { exerciseId: number; setNumber: number }, b: { exerciseId: number; setNumber: number }) =>
+  a.exerciseId === b.exerciseId && a.setNumber === b.setNumber;
+
 /**
- * Replays pending writes oldest-first. Entries that fail stay queued
- * for the next attempt; entries that succeed are dropped. Returns how
- * many are still waiting.
+ * Forgets any queued intent for a set. Called when a later tap for that
+ * set reached the server directly, so an older queued intent can't
+ * replay over it (undo, then the stale "log" coming back).
  */
-export async function flushQueue(handlers: {
+export function dropQueued(exerciseId: number, setNumber: number): void {
+  const queue = readQueue();
+  const kept = queue.filter((item) => !sameSet(item, { exerciseId, setNumber }));
+  if (kept.length !== queue.length) writeQueue(kept);
+}
+
+/** Removes one exact entry, leaving anything queued since untouched. */
+function settle(entry: PendingSet): void {
+  writeQueue(
+    readQueue().filter(
+      (item) => !(sameSet(item, entry) && item.queuedAt === entry.queuedAt),
+    ),
+  );
+}
+
+/**
+ * The server's answer when a set's exercise no longer exists (removed
+ * with "Not for me", a different session, a re-plan). Retrying can't
+ * help, so the entry is dropped rather than retried forever.
+ */
+export const GONE = "gone" as const;
+
+let flushing: Promise<number> | null = null;
+
+/**
+ * Replays pending writes oldest-first. Each entry is removed from
+ * storage as soon as it lands (or turns out to be gone), so sets tapped
+ * while a flush is running are never overwritten. Overlapping calls —
+ * mount, reconnect, the retry timer, the app coming to the front —
+ * share the one flush in progress. Returns how many are still waiting.
+ */
+export function flushQueue(handlers: {
   log: (
     exerciseId: number,
     setNumber: number,
     reps: number,
     weightKg: number | null,
-  ) => Promise<void>;
-  unlog: (exerciseId: number, setNumber: number) => Promise<void>;
+  ) => Promise<unknown>;
+  unlog: (exerciseId: number, setNumber: number) => Promise<unknown>;
 }): Promise<number> {
-  const queue = readQueue();
-  if (queue.length === 0) return 0;
-
-  const remaining: PendingSet[] = [];
-  for (const entry of queue.sort((a, b) => a.queuedAt - b.queuedAt)) {
+  if (flushing) return flushing;
+  flushing = (async () => {
     try {
-      if (entry.action === "log") {
-        await handlers.log(
-          entry.exerciseId,
-          entry.setNumber,
-          entry.reps,
-          entry.weightKg,
-        );
-      } else {
-        await handlers.unlog(entry.exerciseId, entry.setNumber);
+      const snapshot = readQueue().sort((a, b) => a.queuedAt - b.queuedAt);
+      for (const entry of snapshot) {
+        try {
+          if (entry.action === "log") {
+            await handlers.log(entry.exerciseId, entry.setNumber, entry.reps, entry.weightKg);
+          } else {
+            await handlers.unlog(entry.exerciseId, entry.setNumber);
+          }
+          settle(entry);
+        } catch {
+          // Still offline, or the server is down: keep it for next time.
+        }
       }
-    } catch {
-      remaining.push(entry);
+      return readQueue().length;
+    } finally {
+      flushing = null;
     }
-  }
-  writeQueue(remaining);
-  return remaining.length;
+  })();
+  return flushing;
 }

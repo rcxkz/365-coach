@@ -49,6 +49,17 @@
 - **One dark theme** in the Rykz Design DNA: ink background, paper type, brass as the one accent. Every text colour passes 4.5:1 contrast; colours that don't (green, red) only mark dots and rules, never words.
 - **Type:** DM Serif Display headings, Source Serif 4 text, Geist Mono kickers and figures. Square edges, no shadows, and a tab bar with no icons.
 
+## Any AI, any screen (November)
+
+- **Built for your phone:** full screen on a phone. On a desktop it runs in a phone-sized frame, with a QR code to open it on your phone.
+- **Bring your own AI:** Claude stays the default, and a small adapter (`src/ai/client.ts`) also runs the app on any OpenAI-compatible provider: ChatGPT, Gemini, OpenRouter, Groq, or a local model. Replies are still checked against the same formats and the same allowed ids, and the rules-based planner still covers any failure.
+
+## Copy it in five minutes (November)
+
+- **One value to deploy:** the Deploy button asks only for a passcode and creates the database alongside the copy. The login cookie is signed with the database's own secret unless you set one, and the morning job is an optional extra.
+- **No dead ends:** a copy missing its database, its tables or its passcode shows a "Finish setting up" page with the exact next step, never an error. A local copy runs with `npm install && npm run dev` and nothing else.
+- **Review fixes:** offline sets can't be lost or come back after an undo. Failed taps no longer crash a page. Re-planning keeps what's done. Progress follows your plan.
+
 ## How the work was run
 
 - **Propose before building:** every phase started with a short design and its trade-offs, then a decision record (`D*`, `G*`, `Y*`…).

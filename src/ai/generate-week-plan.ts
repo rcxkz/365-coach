@@ -1,9 +1,7 @@
-import { RateLimitError } from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { BEHAVIOURAL_CORE } from "./behavioural-core";
 import { getProfile } from "@/data/repos/profile";
-import { getAnthropic, MODEL_FALLBACK, MODEL_PRIMARY } from "./client";
+import { getAi } from "./client";
 import { fuelVoice } from "./voices/fuel";
 import {
   listMealsForDiet,
@@ -207,7 +205,7 @@ export async function generateWeekPlan(
   let aiPicks: MealCandidate[] = [];
   let mode: "ai" | "rules" = "rules";
 
-  const client = getAnthropic();
+  const client = getAi();
   if (client && candidates.length > 0) {
     try {
       const prompt = buildPrompt({
@@ -218,24 +216,16 @@ export async function generateWeekPlan(
         dinners,
       });
       const voice = fuelVoice((await getProfile()).profile);
-      const call = (model: string) =>
-        client.messages.parse({
-          model,
-          max_tokens: 2000,
-          system: `${BEHAVIOURAL_CORE}\n\n${voice}`,
-          messages: [{ role: "user", content: prompt }],
-          output_config: { format: zodOutputFormat(WeekChoice) },
-        });
+      const result = await client.structured({
+        label: "generateWeekPlan",
+        system: `${BEHAVIOURAL_CORE}\n\n${voice}`,
+        prompt: prompt,
+        effort: "medium",
+        schema: WeekChoice,
+        name: "week_choice",
+      });
 
-      let response;
-      try {
-        response = await call(MODEL_PRIMARY);
-      } catch (error) {
-        if (!(error instanceof RateLimitError)) throw error;
-        response = await call(MODEL_FALLBACK);
-      }
-
-      const picks = response.parsed_output?.meals ?? [];
+      const picks = result?.meals ?? [];
       for (const pick of picks) {
         const candidate = byId.get(pick.mealId);
         // Anything invented is simply dropped; the greedy fills the gap.
@@ -274,7 +264,7 @@ export async function generateWeekPlan(
     prefer,
   });
 
-  const meals = await saveWeekPlan(weekStart, [
+  const entries: { mealId: string; reason: string | null; slot: "dinner" | "lunch" }[] = [
     ...pool.map((entry) => ({
       mealId: entry.meal.id,
       reason: reasons.get(entry.meal.id) ?? weekNote(entry),
@@ -285,7 +275,18 @@ export async function generateWeekPlan(
       reason: reasons.get(entry.meal.id) ?? lunchNote(entry),
       slot: "lunch" as const,
     })),
-  ]);
+  ];
+  // What's been cooked stays, even when it no longer fits the new shape
+  // (fewer dinners than already cooked, no lunch preps, a changed diet):
+  // dropping it would lose the record and send the list shopping again.
+  const planned = new Set(entries.map((entry) => entry.mealId));
+  for (const row of cooked) {
+    if (planned.has(row.mealId)) continue;
+    entries.push({ mealId: row.mealId, reason: row.reason, slot: row.slot === "lunch" ? "lunch" : "dinner" });
+    planned.add(row.mealId);
+  }
+
+  const meals = await saveWeekPlan(weekStart, entries);
 
   await refreshShoppingList(weekStart);
 

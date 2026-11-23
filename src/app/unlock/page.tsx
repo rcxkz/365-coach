@@ -33,8 +33,9 @@ export default async function UnlockPage({
       </form>
       {!authConfig() && (
         <p className="text-center text-sm text-muted-foreground">
-          The passcode isn&apos;t set up on this deployment yet. Add
-          APP_PASSCODE and AUTH_SECRET to its environment, then redeploy.
+          The passcode isn&apos;t set up on this deployment yet. In Vercel, open
+          Settings → Environment Variables, add APP_PASSCODE (a passphrase you&apos;ll
+          remember), then redeploy.
         </p>
       )}
       {retry && (

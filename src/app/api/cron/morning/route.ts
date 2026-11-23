@@ -34,6 +34,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const target = todayInTimeZone();
+  // Read when the run starts: planning can take minutes, and a run that
+  // began at 06:58 London time mustn't miss its reminder by finishing
+  // after 08:00.
+  const hour = hourInTimeZone();
   // The public demo starts each day fresh as its made-up person, and
   // never sends reminders (Phase 16).
   if (isDemo()) {
@@ -47,7 +51,6 @@ export async function GET(request: Request) {
       ? planned.result.mode
       : "failed";
 
-  const hour = hourInTimeZone();
   if (hour !== MORNING_REMINDER_HOUR) {
     return NextResponse.json({ target, plan, reminder: `not_now_${hour}h` });
   }

@@ -1,8 +1,5 @@
-import type Anthropic from "@anthropic-ai/sdk";
-import { APIError, RateLimitError } from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { BEHAVIOURAL_CORE } from "./behavioural-core";
-import { getAnthropic, MODEL_FALLBACK, MODEL_PRIMARY } from "./client";
+import { getAi, isCreditExhausted } from "./client";
 import { GeneratedSession, type GeneratedSessionPlan } from "./schema";
 import { buildSessionPrompt, type LastPerformance } from "./session-prompt";
 import { fitnessVoice } from "./voices/fitness";
@@ -17,13 +14,14 @@ import { listOpenPainFlags } from "@/data/repos/pain";
 import { getFuelDay, getMealDefinition } from "@/data/repos/fuel";
 import { getLatestReview } from "@/data/repos/reviews";
 import { generateFuelDay } from "./generate-fuel";
-import { replaceDayActions } from "@/data/repos/today";
+import { getDayActions, replaceDayActions } from "@/data/repos/today";
 import {
   createWorkout,
   deleteWorkoutByDate,
   getLastPerformance,
   getRecentRotationKeys,
   getWorkoutByDate,
+  listPlannedDates,
   listTrainedDates,
   type NewExercise,
 } from "@/data/repos/workouts";
@@ -41,7 +39,7 @@ import {
 import { composeDay, type DayActionDraft } from "@/domain/compose-day";
 import { availableEquipment, weeklyCeilingReached } from "@/domain/profile";
 import { currentFeeling, describeFeeling } from "@/domain/journal";
-import { addDaysISO, startOfWeekISO } from "@/domain/dates";
+import { addDaysISO, startOfWeekISO, todayInTimeZone } from "@/domain/dates";
 import { composeFallbackSession } from "@/domain/fallback-plan";
 import { assessReadiness, type ReadinessAssessment } from "@/domain/readiness";
 import { pickNextSession } from "@/domain/rotation";
@@ -106,7 +104,7 @@ export async function generateDay(
     }
     if (
       weeklyCeilingReached(
-        await listTrainedDates(targetDate),
+        await sessionsCountedThisWeek(targetDate),
         startOfWeekISO(targetDate),
         targetDate,
         profile.training.daysPerWeek,
@@ -124,7 +122,7 @@ export async function generateDay(
       { mode: "fallback" }
     >["fallbackReason"] = "recovery_day";
     if (plan.readiness.level !== "red") {
-      fallbackReason = getAnthropic() ? "ai_unavailable" : "not_configured";
+      fallbackReason = getAi() ? "ai_unavailable" : "not_configured";
       try {
         const title = await tryAiSession(targetDate, plan);
         if (title) return { ok: true, title, mode: "ai" };
@@ -140,6 +138,20 @@ export async function generateDay(
     console.error("generateDay failed", error);
     return { ok: false, reason: "error" };
   }
+}
+
+/**
+ * The week's sessions before `targetDate`: days already trained, plus,
+ * when planning ahead, sessions still planned from today on. A planned
+ * day in the past that wasn't trained doesn't count — nothing is owed.
+ */
+async function sessionsCountedThisWeek(targetDate: string): Promise<string[]> {
+  const trained = await listTrainedDates(targetDate);
+  const today = todayInTimeZone();
+  if (targetDate <= today) return trained;
+  const weekStart = startOfWeekISO(targetDate);
+  const planned = await listPlannedDates(weekStart > today ? weekStart : today, targetDate);
+  return [...new Set([...trained, ...planned])];
 }
 
 interface PlanInputs {
@@ -348,28 +360,6 @@ async function summariseRecentSessions(targetDate: string): Promise<string[]> {
 }
 
 /**
- * An out-of-credit Console account fails as a 400, not a 402 — worth
- * naming so the app can say "top up" instead of "something went wrong".
- */
-function isCreditExhausted(error: unknown): boolean {
-  return (
-    error instanceof APIError &&
-    typeof error.message === "string" &&
-    /credit balance/i.test(error.message)
-  );
-}
-
-function parseSession(client: Anthropic, model: string, prompt: string, voice: string) {
-  return client.messages.parse({
-    model,
-    max_tokens: 16000,
-    system: `${BEHAVIOURAL_CORE}\n\n${voice}`,
-    messages: [{ role: "user", content: prompt }],
-    output_config: { format: zodOutputFormat(GeneratedSession) },
-  });
-}
-
-/**
  * Keeps only selections that name a real candidate offered for this
  * session — the model cannot smuggle in an exercise the gates excluded.
  */
@@ -410,7 +400,7 @@ async function tryAiSession(
   targetDate: string,
   plan: PlanInputs,
 ): Promise<string | null> {
-  const client = getAnthropic();
+  const client = getAi();
   if (!client) return null;
 
   const prompt = buildSessionPrompt({
@@ -429,23 +419,14 @@ async function tryAiSession(
   });
 
   const voice = fitnessVoice((await getProfile()).profile);
-  let response: Awaited<ReturnType<typeof parseSession>>;
-  try {
-    response = await parseSession(client, MODEL_PRIMARY, prompt, voice);
-  } catch (error) {
-    if (!(error instanceof RateLimitError)) throw error;
-    response = await parseSession(client, MODEL_FALLBACK, prompt, voice);
-  }
-
-  // Cost visibility: this runs once or twice a day on a prepaid balance.
-  console.log("generateDay usage", {
-    model: response.model,
-    input: response.usage.input_tokens,
-    output: response.usage.output_tokens,
+  const selection = await client.structured({
+    label: "generateDay",
+    system: `${BEHAVIOURAL_CORE}\n\n${voice}`,
+    prompt,
+    effort: "medium",
+    schema: GeneratedSession,
+    name: "session",
   });
-
-  if (response.stop_reason === "refusal") return null;
-  const selection = response.parsed_output;
   if (!selection) return null;
 
   const exercises = easeForReturn(
@@ -541,6 +522,31 @@ async function writeDayActions(
   targetDate: string,
   workout: DayActionDraft | null,
 ): Promise<void> {
+  // A re-plan ("different session", "I'm back" in the evening) changes
+  // training, not a dinner already ticked: that stays as it is, rather
+  // than being swapped and counted as cooked a second time.
+  const ticked = (await getDayActions(targetDate)).filter(
+    (action) => action.domain === "fuel" && action.status !== "pending",
+  );
+  if (ticked.length > 0) {
+    await replaceDayActions(
+      targetDate,
+      composeDay({
+        workout,
+        foodActions: ticked.map((action) => ({
+          domain: "fuel" as const,
+          kind: "food" as const,
+          title: action.title,
+          detail: action.detail,
+          rationale: action.rationale,
+          mealId: action.mealId,
+          status: action.status,
+        })),
+      }),
+    );
+    return;
+  }
+
   await replaceDayActions(targetDate, composeDay({ workout }));
 
   const foodActions = await buildFoodActions(targetDate);
@@ -557,7 +563,25 @@ async function writePausedDay(targetDate: string): Promise<void> {
   const existing = await getWorkoutByDate(targetDate);
   const started = existing?.exercises.some((e) => e.sets.length > 0) ?? false;
   if (existing && !started) await deleteWorkoutByDate(targetDate);
-  await writeDayActions(targetDate, null);
+  // A session already trained today stays on Today: pausing stops what's
+  // next, it doesn't erase what's done.
+  const done = started
+    ? (await getDayActions(targetDate)).find((action) => action.kind === "workout")
+    : undefined;
+  await writeDayActions(
+    targetDate,
+    done
+      ? {
+          domain: "fitness",
+          kind: "workout",
+          title: done.title,
+          detail: done.detail,
+          rationale: done.rationale,
+          workoutId: done.workoutId,
+          status: done.status,
+        }
+      : null,
+  );
 }
 
 /**

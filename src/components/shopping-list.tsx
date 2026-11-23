@@ -1,6 +1,6 @@
 "use client";
 
-import { useOptimistic, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { Check, Undo2, X } from "lucide-react";
 import { setShoppingItem } from "@/app/fuel/week/actions";
 import { cn } from "@/lib/utils";
@@ -42,14 +42,27 @@ export function ShoppingList({ aisles }: { aisles: ShoppingAisle[] }) {
     })),
   );
 
+  // A failed tick (no signal in the shop) must not take the list down:
+  // the optimistic tick falls back on its own, and a line says so.
+  const [failed, setFailed] = useState(false);
   const set = (id: number, status: Change["status"]) =>
     startTransition(async () => {
       apply({ id, status });
-      await setShoppingItem(id, status);
+      try {
+        await setShoppingItem(id, status);
+        setFailed(false);
+      } catch {
+        setFailed(true);
+      }
     });
 
   return (
     <div className="flex flex-col gap-5">
+      {failed && (
+        <p role="status" className="text-sm text-muted-foreground">
+          That tick didn&apos;t save — no signal, probably. Tap it again when you&apos;re back on.
+        </p>
+      )}
       {view
         .filter((aisle) => aisle.items.length > 0)
         .map((aisle) => (

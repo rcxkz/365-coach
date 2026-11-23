@@ -1,7 +1,6 @@
-import { RateLimitError } from "@anthropic-ai/sdk";
 import { BEHAVIOURAL_CORE } from "./behavioural-core";
 import { getProfile } from "@/data/repos/profile";
-import { getAnthropic, MODEL_FALLBACK, MODEL_PRIMARY } from "./client";
+import { getAi } from "./client";
 import { fitnessVoice } from "./voices/fitness";
 import {
   countCompletedBetween,
@@ -130,31 +129,17 @@ export async function generateWeeklyReview(
   let narrative = writeRulesNarrative(summary);
   let mode: "ai" | "rules" = "rules";
 
-  const client = getAnthropic();
+  const client = getAi();
   if (client) {
     try {
       const voice = fitnessVoice((await getProfile()).profile);
-      const call = (model: string) =>
-        client.messages.create({
-          model,
-          max_tokens: 700,
-          system: `${BEHAVIOURAL_CORE}\n\n${voice}`,
-          messages: [{ role: "user", content: buildPrompt(summary) }],
-        });
+      const text = await client.text({
+        label: "generateWeeklyReview",
+        system: `${BEHAVIOURAL_CORE}\n\n${voice}`,
+        prompt: buildPrompt(summary),
+        effort: "low",
+      });
 
-      let response;
-      try {
-        response = await call(MODEL_PRIMARY);
-      } catch (error) {
-        if (!(error instanceof RateLimitError)) throw error;
-        response = await call(MODEL_FALLBACK);
-      }
-
-      const text = response.content
-        .filter((block) => block.type === "text")
-        .map((block) => block.text)
-        .join("")
-        .trim();
       if (text.length > 0) {
         narrative = text;
         mode = "ai";

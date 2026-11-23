@@ -7,7 +7,7 @@ import * as schema from "./schema";
  * - otherwise           -> embedded PGlite at `.data/pg` (local dev),
  *                          in-memory under Vitest.
  *
- * PGlite auto-migrates on first use. Neon is migrated at deploy time
+ * PGlite auto-migrates and loads the libraries on first use. Neon is migrated at deploy time
  * (`db:migrate`) so cold starts never race concurrent migrations.
  *
  * Server-side only — never import from client components.
@@ -51,6 +51,14 @@ async function createDb(): Promise<Db> {
   }
   const db = drizzle(client, { schema });
   await migrate(db, { migrationsFolder: "drizzle" });
+  if (!process.env.VITEST) {
+    // A fresh local copy needs the exercise and meal libraries before it
+    // can plan anything (production builds sync them in predeploy). The
+    // upserts are idempotent, so library edits show up on restart too.
+    const { syncLibraries } = await import("./sync");
+    dbPromise = Promise.resolve(db);
+    await syncLibraries();
+  }
   return db;
 }
 

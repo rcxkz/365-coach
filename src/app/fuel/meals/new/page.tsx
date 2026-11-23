@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { getAnthropic } from "@/ai/client";
+import { getAi } from "@/ai/client";
 import { MealForm } from "@/components/meal-form";
 import { getMealDefinition, listCustomIngredients } from "@/data/repos/fuel";
 import { INGREDIENTS, type UserMealInput } from "@/domain/meals";
@@ -67,7 +67,7 @@ export default async function NewMealPage({
       <MealForm
         initial={initial}
         suggestions={[...INGREDIENTS, ...custom.map((row) => row.key)]}
-        aiAvailable={!source && getAnthropic() !== null}
+        aiAvailable={!source && getAi() !== null}
       />
     </main>
   );

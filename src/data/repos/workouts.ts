@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, isNotNull, lt, ne, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, isNotNull, lt, ne, or } from "drizzle-orm";
 import { getDb } from "../db";
 import {
   setLogs,
@@ -52,24 +52,33 @@ export async function createWorkout(input: {
     })
     .returning();
 
-  const exercises = input.exercises.length
-    ? await db
-        .insert(workoutExercises)
-        .values(
-          input.exercises.map((exercise, index) => ({
-            workoutId: workout.id,
-            position: index,
-            name: exercise.name,
-            libraryExerciseId: exercise.libraryExerciseId ?? null,
-            targetSets: exercise.targetSets,
-            targetReps: exercise.targetReps,
-            targetWeightKg: exercise.targetWeightKg ?? null,
-            inShortVersion: exercise.inShortVersion ?? false,
-            note: exercise.note ?? null,
-          })),
-        )
-        .returning()
-    : [];
+  // Neon's HTTP driver has no transactions, so a failed exercise insert
+  // removes the session it belonged to: a half-written, empty session
+  // would block "Plan today" and show nothing to train.
+  let exercises: (typeof workoutExercises.$inferSelect)[];
+  try {
+    exercises = input.exercises.length
+      ? await db
+          .insert(workoutExercises)
+          .values(
+            input.exercises.map((exercise, index) => ({
+              workoutId: workout.id,
+              position: index,
+              name: exercise.name,
+              libraryExerciseId: exercise.libraryExerciseId ?? null,
+              targetSets: exercise.targetSets,
+              targetReps: exercise.targetReps,
+              targetWeightKg: exercise.targetWeightKg ?? null,
+              inShortVersion: exercise.inShortVersion ?? false,
+              note: exercise.note ?? null,
+            })),
+          )
+          .returning()
+      : [];
+  } catch (error) {
+    await db.delete(workouts).where(eq(workouts.id, workout.id));
+    throw error;
+  }
 
   return {
     ...workout,
@@ -112,6 +121,17 @@ export async function getWorkoutByDate(
   };
 }
 
+/** Whether a workout exercise row still exists (queued taps can outlive it). */
+export async function workoutExerciseExists(id: number): Promise<boolean> {
+  const db = await getDb();
+  const [row] = await db
+    .select({ id: workoutExercises.id })
+    .from(workoutExercises)
+    .where(eq(workoutExercises.id, id))
+    .limit(1);
+  return Boolean(row);
+}
+
 export async function logSet(
   exerciseId: number,
   input: { setNumber: number; reps: number; weightKg?: number | null },
@@ -142,7 +162,12 @@ export async function logSet(
  * The everyday path logs one tap at a time with logSet.
  */
 export async function logSets(
-  rows: { exerciseId: number; setNumber: number; reps: number; weightKg?: number | null }[],
+  rows: {
+    exerciseId: number;
+    setNumber: number;
+    reps: number;
+    weightKg?: number | null;
+  }[],
 ): Promise<void> {
   if (rows.length === 0) return;
   const db = await getDb();
@@ -206,6 +231,21 @@ export async function listTrainedDates(
     )
     .orderBy(desc(workouts.date))
     .limit(limit);
+  return rows.map((row) => row.date);
+}
+
+/**
+ * Dates from `from` (inclusive) to `before` (exclusive) holding a
+ * session that is planned and not yet trained or skipped. Planning ahead
+ * counts these toward the week's ceiling, so "Plan tomorrow" can't add a
+ * training day on top of one already waiting for today.
+ */
+export async function listPlannedDates(from: string, before: string): Promise<string[]> {
+  const db = await getDb();
+  const rows = await db
+    .selectDistinct({ date: workouts.date })
+    .from(workouts)
+    .where(and(gte(workouts.date, from), lt(workouts.date, before), eq(workouts.status, "planned")));
   return rows.map((row) => row.date);
 }
 
@@ -301,7 +341,9 @@ export async function setIncludedExercises(
 }
 
 /** Removes one planned exercise, unless sets have been logged against it. */
-export async function deleteUnloggedWorkoutExercise(id: number): Promise<boolean> {
+export async function deleteUnloggedWorkoutExercise(
+  id: number,
+): Promise<boolean> {
   const db = await getDb();
   const [logged] = await db
     .select({ id: setLogs.id })
@@ -336,7 +378,10 @@ export async function updateWorkoutExercise(
   },
 ): Promise<void> {
   const db = await getDb();
-  await db.update(workoutExercises).set(fields).where(eq(workoutExercises.id, id));
+  await db
+    .update(workoutExercises)
+    .set(fields)
+    .where(eq(workoutExercises.id, id));
 }
 
 export async function setWorkoutNotes(
