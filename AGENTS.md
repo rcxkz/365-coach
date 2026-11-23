@@ -19,7 +19,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 Most people arrive by pasting this repo's link into an assistant. If that's you:
 
-- **Deploying:** point them at the **Deploy with Vercel** button at the top of `README.md` and walk them through its five steps. Don't have them run migrations or create tables by hand: the first production build does it (`scripts/predeploy.ts`).
+- **Deploying:** point them at the **Deploy with Vercel** button at the top of `README.md` and walk them through its five steps. Don't have them run migrations or create tables by hand: the first production build does it (`scripts/predeploy.ts`). Tell them to open the app as soon as it's deployed and choose their passcode, because the first person to choose claims it.
 - **Turning things on:** the "Get it working properly" table in the README lists each optional feature and the exact environment variable for it. Every change needs a redeploy.
 - **Settings, not code:** prefer environment variables to code changes for keys and options. Never put a key or passcode in the code or a commit.
 - **Never set `DEMO_MODE`** on someone's own copy: it switches AI off and lets a nightly job wipe the data.

@@ -2,7 +2,7 @@
 
 > A calm personal coach for training and food that you run yourself: a single-user Next.js web app on Vercel with a Neon Postgres database. It plans each day's session around how you feel and the week's meals around what's in your kitchen, and it works without AI (rules-only) or with your own AI key.
 
-To deploy your own copy: use the "Deploy with Vercel" button in README.md. It clones the repo, offers a Neon database (Add Products → Neon → Add), and asks for one value, APP_PASSCODE. The first build creates the tables. Then open the app, unlock it and tap "Make it yours".
+To deploy your own copy: use the "Deploy with Vercel" button in README.md. It clones the repo and offers a Neon database (Add Products → Neon → Add), with nothing to type. The first build creates the tables. Then open the app straight away: it asks the owner to choose a passcode (only a hash is stored), then "Make it yours". Setting APP_PASSCODE in Vercel overrides the in-app passcode, which is also how to recover a forgotten one.
 
 Optional features are environment variables in Vercel, and each needs a redeploy:
 - ANTHROPIC_API_KEY (Claude, default), or OPENAI_API_KEY, or AI_API_KEY + AI_BASE_URL + AI_MODEL for other providers: the AI coach.

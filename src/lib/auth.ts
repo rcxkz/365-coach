@@ -1,15 +1,19 @@
 /**
- * Single-user session auth: the unlock action sets a cookie holding
- * HMAC(AUTH_SECRET, passcode); the proxy and every server action admit
- * requests whose cookie matches. Stateless, no DB, Web Crypto only
- * (runs in proxy and server actions alike).
+ * Single-user session auth: the unlock action sets a cookie holding an
+ * HMAC over the passcode; the proxy and every server action admit
+ * requests whose cookie matches. Web Crypto only (runs in the proxy and
+ * server actions alike).
  *
- * The passcode is part of the signed message, so changing APP_PASSCODE
- * signs every device out — the way to revoke a lost phone.
+ * Two ways to have a passcode:
+ * - APP_PASSCODE in the environment — stateless, no database read.
+ * - Chosen in the app on first open (when APP_PASSCODE isn't set): the
+ *   owner's database holds a PBKDF2 hash, and the cookie is bound to it.
+ * Either way the passcode (or its hash) is part of the signed message,
+ * so changing it signs every other device out — the way to revoke a
+ * lost phone.
  *
- * Unconfigured (no APP_PASSCODE, or nothing to sign with): open in
- * development, closed in production. A deploy that forgot its env vars
- * must not publish the app to the internet.
+ * With nothing to sign with: open in development, closed in production.
+ * A deploy that's missing a piece must not publish the app.
  */
 export const SESSION_COOKIE = "p365_session";
 
@@ -17,18 +21,60 @@ const encoder = new TextEncoder();
 
 type AuthConfig = { secret: string; passcode: string };
 
-export function authConfig(): AuthConfig | null {
-  const passcode = process.env.APP_PASSCODE?.trim();
-  if (!passcode) return null;
-  // AUTH_SECRET is optional: without it the cookie is signed with the
-  // database connection string, a long server-only secret every real
-  // deployment already has. So deploying needs one value — the
-  // passcode. (Changing the database password then signs devices out,
-  // the same as changing the passcode.)
+/**
+ * What cookies are signed with. AUTH_SECRET is optional: without it the
+ * database connection string is used, a long server-only secret every
+ * real deployment already has. (Changing the database password then
+ * signs devices out, the same as changing the passcode.)
+ */
+export function signingSecret(): string | null {
   const explicit = process.env.AUTH_SECRET?.trim();
   const database = process.env.DATABASE_URL?.trim();
-  const secret = explicit || (database ? `p365-db-key:${database}` : "");
-  return secret ? { secret, passcode } : null;
+  return explicit || (database ? `p365-db-key:${database}` : null);
+}
+
+/** The passcode from APP_PASSCODE, with what to sign it with. */
+export function authConfig(): AuthConfig | null {
+  const passcode = process.env.APP_PASSCODE?.trim();
+  const secret = signingSecret();
+  return passcode && secret ? { secret, passcode } : null;
+}
+
+/**
+ * Whether the passcode is chosen in the app: no APP_PASSCODE, a real
+ * database to keep its hash in, and something to sign with.
+ */
+export function inAppPasscode(): boolean {
+  if (process.env.APP_PASSCODE?.trim()) return false;
+  const database = Boolean(process.env.DATABASE_URL?.trim()) || Boolean(process.env.VITEST);
+  return database && signingSecret() !== null;
+}
+
+/** The cookie for a passcode chosen in the app, bound to its stored hash. */
+export function lockTokenFor(secret: string, passcodeHash: string): Promise<string> {
+  return sessionTokenFor({ secret, passcode: `in-app:${passcodeHash}` });
+}
+
+/**
+ * The stored hash, remembered briefly so the proxy doesn't read the
+ * database on every request. A cookie that doesn't match the remembered
+ * hash is always re-checked against a fresh read, so a new passcode
+ * works at once; an old cookie can outlive a passcode change by at most
+ * a minute on another server instance.
+ */
+let remembered: { hash: string; at: number } | null = null;
+const REMEMBER_MS = 60_000;
+
+async function readLockHash(): Promise<string | null> {
+  const { getLockHash } = await import("@/data/repos/lock");
+  const hash = await getLockHash();
+  remembered = hash ? { hash, at: Date.now() } : null;
+  return hash;
+}
+
+/** Forget the remembered hash (after claiming or changing the passcode). */
+export function forgetLockHash(): void {
+  remembered = null;
 }
 
 /** The gate is off for `next dev` with nothing configured, and for the public demo. */
@@ -74,7 +120,22 @@ export async function isValidSession(
   token: string | undefined,
 ): Promise<boolean> {
   if (authDisabled()) return true;
+  if (!token) return false;
   const config = authConfig();
-  if (!config || !token) return false;
-  return safeEqual(token, await sessionTokenFor(config));
+  if (config) return safeEqual(token, await sessionTokenFor(config));
+  if (!inAppPasscode()) return false;
+
+  const secret = signingSecret()!;
+  if (remembered && Date.now() - remembered.at < REMEMBER_MS) {
+    if (safeEqual(token, await lockTokenFor(secret, remembered.hash))) return true;
+  }
+  const hash = await readLockHash();
+  return hash !== null && safeEqual(token, await lockTokenFor(secret, hash));
+}
+
+/** For the unlock page: which form to show. */
+export async function passcodeState(): Promise<"env" | "claimed" | "unclaimed" | "unavailable"> {
+  if (authConfig()) return "env";
+  if (!inAppPasscode()) return "unavailable";
+  return (await readLockHash()) ? "claimed" : "unclaimed";
 }

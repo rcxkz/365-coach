@@ -56,7 +56,8 @@
 
 ## Copy it in five minutes (November)
 
-- **One value to deploy:** the Deploy button asks only for a passcode and creates the database alongside the copy. The login cookie is signed with the database's own secret unless you set one, and the morning job is an optional extra.
+- **Nothing to type to deploy:** the Deploy button creates the database alongside the copy, and the owner chooses a passcode in the app on first open (only a salted hash is stored). The login cookie is signed with the database's own secret unless you set one, and the morning job is an optional extra.
+- **Builds anywhere:** the fonts are bundled in the repo, so a build doesn't need to reach Google Fonts. An AI assistant building it in a locked-down sandbox no longer trips over them.
 - **No dead ends:** a copy missing its database, its tables or its passcode shows a "Finish setting up" page with the exact next step, never an error. A local copy runs with `npm install && npm run dev` and nothing else.
 - **Review fixes:** offline sets can't be lost or come back after an undo. Failed taps no longer crash a page. Re-planning keeps what's done. Progress follows your plan.
 

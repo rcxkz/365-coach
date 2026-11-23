@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { MakerStamp } from "@/components/maker-stamp";
+import { inAppPasscode } from "@/lib/auth";
 import { ArrowLeft } from "lucide-react";
 import {
+  changePasscode,
   addCoachNote,
   bringBackExercise,
   bringBackMeal,
@@ -31,9 +33,17 @@ const textarea =
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ saved?: string }>;
+  searchParams: Promise<{ saved?: string; passcode?: string }>;
 }) {
-  const { saved } = await searchParams;
+  const { saved, passcode } = await searchParams;
+  const passcodeNotice =
+    passcode === "changed"
+      ? "Changed. Other devices will need the new passcode."
+      : passcode === "wrong"
+        ? "That isn't the current passcode. Nothing changed."
+        : passcode && passcode !== "env"
+          ? passcode
+          : null;
   const publicKey = vapidPublicKey();
   // The morning job only runs where Vercel can authenticate it.
   const morningJobOn = Boolean(process.env.CRON_SECRET?.trim());
@@ -205,6 +215,29 @@ export default async function SettingsPage({
           </ul>
         )}
       </section>
+      <section id="passcode" className="border-t border-border py-4">
+        <h2 className="eyebrow mb-1">Passcode</h2>
+        {inAppPasscode() ? (
+          <>
+            <p className="mb-3 text-sm text-muted-foreground">
+              Changing it signs every other device out, which is the way to lock out a lost phone.
+            </p>
+            {passcodeNotice && <p role="status" className="mb-3 text-sm">{passcodeNotice}</p>}
+            <form action={changePasscode} className="flex flex-col gap-2">
+              <input type="password" name="current" required autoComplete="current-password" aria-label="Current passcode" placeholder="Current passcode" className="h-11 border border-input bg-background px-3 text-sm" />
+              <input type="password" name="passcode" required minLength={8} autoComplete="new-password" aria-label="New passcode" placeholder="New passcode" className="h-11 border border-input bg-background px-3 text-sm" />
+              <input type="password" name="confirm" required minLength={8} autoComplete="new-password" aria-label="New passcode again" placeholder="New passcode again" className="h-11 border border-input bg-background px-3 text-sm" />
+              <Button type="submit" variant="outline" className="self-start">Change passcode</Button>
+            </form>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Set by APP_PASSCODE in this deployment&apos;s environment. Change it there and redeploy;
+            every device is signed out.
+          </p>
+        )}
+      </section>
+
       <MakerStamp />
     </main>
   );

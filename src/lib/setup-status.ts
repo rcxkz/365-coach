@@ -1,4 +1,4 @@
-import { authConfig } from "@/lib/auth";
+import { authConfig, inAppPasscode } from "@/lib/auth";
 import { isDemo } from "@/lib/demo";
 
 /**
@@ -12,7 +12,15 @@ export function configProblems(): SetupProblem[] {
   const problems: SetupProblem[] = [];
   // Locally the embedded database needs nothing; on Vercel it can't run.
   if (process.env.VERCEL && !process.env.DATABASE_URL?.trim()) problems.push("no_database");
-  if (process.env.NODE_ENV === "production" && !isDemo() && !authConfig()) {
+  // Without APP_PASSCODE the owner chooses one in the app, which needs a
+  // database to keep it in, so a missing database is the one step to show.
+  if (
+    process.env.NODE_ENV === "production" &&
+    !isDemo() &&
+    !authConfig() &&
+    !inAppPasscode() &&
+    !problems.includes("no_database")
+  ) {
     problems.push("no_passcode");
   }
   return problems;

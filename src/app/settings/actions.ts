@@ -10,6 +10,10 @@ import {
   updateMemoryContent,
 } from "@/data/repos/memories";
 import { deletePushSubscription, savePushSubscription } from "@/data/repos/push";
+import { cookies } from "next/headers";
+import { getLockHash, replaceLockHash } from "@/data/repos/lock";
+import { SESSION_COOKIE, forgetLockHash, inAppPasscode, lockTokenFor, signingSecret } from "@/lib/auth";
+import { hashPasscode, passcodeProblem, verifyPasscode } from "@/lib/passcode";
 import { requireSession } from "@/lib/require-session";
 import { sendPush } from "@/services/push";
 
@@ -95,4 +99,35 @@ export async function bringBackMeal(mealId: string): Promise<void> {
   revalidatePath("/settings");
   revalidatePath("/fuel");
   redirect("/settings?saved=back");
+}
+
+/**
+ * Changes a passcode chosen in the app. The cookie is bound to the
+ * stored hash, so every other device is signed out; this one gets a new
+ * cookie and stays in.
+ */
+export async function changePasscode(formData: FormData): Promise<void> {
+  await requireSession();
+  if (!inAppPasscode()) redirect("/settings?passcode=env");
+  const current = String(formData.get("current") ?? "");
+  const next = String(formData.get("passcode") ?? "");
+  const hash = await getLockHash();
+  if (!hash || !(await verifyPasscode(current, hash))) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    redirect("/settings?passcode=wrong#passcode");
+  }
+  const problem = passcodeProblem(next, String(formData.get("confirm") ?? ""));
+  if (problem) redirect(`/settings?passcode=${encodeURIComponent(problem)}#passcode`);
+
+  const fresh = await hashPasscode(next);
+  await replaceLockHash(fresh);
+  forgetLockHash();
+  (await cookies()).set(SESSION_COOKIE, await lockTokenFor(signingSecret()!, fresh), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 365,
+    path: "/",
+  });
+  redirect("/settings?passcode=changed#passcode");
 }

@@ -642,3 +642,15 @@ export const profile = pgTable("profile", {
     .notNull()
     .defaultNow(),
 });
+
+/**
+ * The passcode chosen in the app (when APP_PASSCODE isn't set): one row,
+ * holding only a salted PBKDF2 hash. Whoever sets it first claims the
+ * copy; the login cookie is bound to the hash, so changing it signs
+ * every other device out.
+ */
+export const appLock = pgTable("app_lock", {
+  id: integer("id").primaryKey().default(1),
+  passcodeHash: text("passcode_hash").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

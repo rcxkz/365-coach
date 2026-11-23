@@ -4,7 +4,7 @@
 
 A calm personal coach for training and food that you run yourself. It plans each day's session around how you feel, plans the week's meals around what's in your kitchen, and never makes you feel behind.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Frcxkz%2F365-coach&project-name=365-coach&repository-name=365-coach&env=APP_PASSCODE&envDescription=A%20passphrase%20you%27ll%20type%20to%20unlock%20your%20copy.%20Only%20someone%20with%20it%20can%20open%20the%20app.&envLink=https%3A%2F%2Fgithub.com%2Frcxkz%2F365-coach%23deploy-your-own-in-five-minutes&stores=%5B%7B%22type%22%3A%22integration%22,%22integrationSlug%22%3A%22neon%22,%22productSlug%22%3A%22neon%22,%22protocol%22%3A%22storage%22%7D%5D)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Frcxkz%2F365-coach&project-name=365-coach&repository-name=365-coach&stores=%5B%7B%22type%22%3A%22integration%22,%22integrationSlug%22%3A%22neon%22,%22productSlug%22%3A%22neon%22,%22protocol%22%3A%22storage%22%7D%5D)
 
 **[Try the demo first](https://365-coach.vercel.app)** · [Get it working properly](#get-it-working-properly) · [Using an AI assistant?](#using-an-ai-assistant) · [How it works](docs/HOW_IT_WORKS.md)
 
@@ -14,9 +14,9 @@ You need a free [GitHub](https://github.com/signup) account and a free [Vercel](
 
 1. **Click Deploy with Vercel** (above). Vercel copies this repo to your GitHub. If it says the name is taken, add your name to it, e.g. `365-coach-sam`.
 2. **Add the database.** Under **Add Products → Storage** you'll see **Neon**. Click **Add**, then choose the free plan and the region closest to you.
-3. **Choose a passcode.** Vercel asks for one value, `APP_PASSCODE`. Use a passphrase you'll remember, not a short PIN. That's the only value you type.
-4. **Click Deploy** and wait about a minute. The first build creates the database tables.
-5. **Open your app.** Unlock it with your passcode, tap **Make it yours** (two minutes of taps), then **Plan today**.
+3. **Click Deploy** and wait about a minute. There's nothing to type: the first build creates the database tables.
+4. **Open your app straight away and choose a passcode.** The first screen asks for one, and it keeps your data private: nobody can open the app without it. Whoever chooses first claims the copy, so do it as soon as the deploy finishes.
+5. **Tap Make it yours** (two minutes of taps), then **Plan today**.
 
 That's a working coach. If anything is missing, the app shows a **Finish setting up** page that says exactly what to do, rather than an error.
 
@@ -34,14 +34,15 @@ The deploy above gives you everything on rules alone. These turn on the rest. Ea
 | **4. The morning notification** | One push between 7 and 8am saying what's on. Needs morning planning (3). | `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`. Make a pair with `npx web-push generate-vapid-keys`, or ask your AI assistant to. Then open **Settings** in the app and switch the reminder on. On iPhone, the app must be on your home screen (1). |
 | **5. Your time zone** | Days start and end at your midnight, and the reminder comes at your 7am. | `APP_TIME_ZONE`, e.g. `America/New_York`. Outside the UK, also change the two hours in `vercel.json` (06:00 and 07:00 UTC) so one of them falls in your 7am hour. |
 
-**Security:** the passcode is the lock. Changing `APP_PASSCODE` (and redeploying) signs every device out, which is the way to lock out a lost phone.
+**Security:** the passcode is the lock. Change it in the app's **Settings → Passcode** and every other device is signed out, which is the way to lock out a lost phone. You can set it as `APP_PASSCODE` in Vercel instead, which takes over from the one chosen in the app.
 
 ## If something's not right
 
 | What you see | What to do |
 |---|---|
 | **"Finish setting up"** | Follow the numbered steps on that page. Usually: connect the Neon database (Vercel → **Storage**), then redeploy. |
-| **The passcode doesn't work** | Check `APP_PASSCODE` in Vercel, with no spaces at either end. If you changed it, redeploy. |
+| **Forgot your passcode** | In Vercel, add `APP_PASSCODE` with a new passphrase and redeploy. It takes over from the forgotten one, and your data stays as it was. |
+| **"A passcode was already chosen"** | Someone, probably you in another tab, chose it first. Unlock with that passcode, or use the line above to set a new one. |
 | **"AI coaching isn't connected yet"** | No AI key is set, so it's planning on rules. Add one (see [The AI coach](#the-ai-coach)) and redeploy. |
 | **"…out of credit"** | Your AI account needs topping up. The app plans on rules until it is. |
 | **The day isn't planned in the morning** | Add `CRON_SECRET` and redeploy. On Vercel's free plan, each scheduled run happens at some point within its hour. |
@@ -59,13 +60,14 @@ Paste the link to this repo into Claude, ChatGPT or any assistant, and it can wa
 If a person asks you to help them set up or change this app, these are the facts to work from:
 
 - **What it is:** a single-user Next.js (App Router) web app, deployed to Vercel, with a Neon Postgres database. It's one person per deployment, locked by a passcode. There's no sign-up system and no user accounts.
-- **To deploy:** use the **Deploy with Vercel** button at the top of this README. It clones the repo, offers to create a Neon database (Add Products → Neon → Add), and asks for `APP_PASSCODE`. The first production build runs `scripts/predeploy.ts`, which applies the database migrations and loads the exercise and meal libraries. Nothing needs running by hand.
-- **Required environment:** `APP_PASSCODE` and `DATABASE_URL`. The Neon integration sets `DATABASE_URL`.
+- **To deploy:** use the **Deploy with Vercel** button at the top of this README. It clones the repo and offers to create a Neon database (Add Products → Neon → Add). Nothing needs typing. The first production build runs `scripts/predeploy.ts`, which applies the database migrations and loads the exercise and meal libraries. Nothing needs running by hand.
+- **The passcode:** on first open, the app asks the owner to choose one. It stores only a salted hash in their database (table `app_lock`), and they can change it in Settings. They should open the app right after deploying, because the first person to choose claims it. Setting `APP_PASSCODE` in Vercel overrides it, which is also how to recover a forgotten one.
+- **Required environment:** only `DATABASE_URL`, which the Neon integration sets.
 - **Optional environment:**
   - `ANTHROPIC_API_KEY`, or `OPENAI_API_KEY`, or `AI_API_KEY` + `AI_BASE_URL` + `AI_MODEL`;
   - `CRON_SECRET`;
   - `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` (optional `VAPID_SUBJECT`);
-  - `APP_TIME_ZONE`, `AUTH_SECRET`, `AI_PROVIDER`, `AI_MODEL_FALLBACK`, `MAKER_STAMP`.
+  - `APP_PASSCODE`, `APP_TIME_ZONE`, `AUTH_SECRET`, `AI_PROVIDER`, `AI_MODEL_FALLBACK`, `MAKER_STAMP`.
   - The [Environment](#environment) table explains each one.
 - **Never set `DEMO_MODE` on a real deployment.** It's for the public demo: it turns AI off and lets a nightly job wipe and rebuild the data. (It also refuses to open the app without a passcode if one is set, but don't rely on that.)
 - **Changing environment variables needs a redeploy** before it takes effect.
@@ -153,7 +155,7 @@ Prices are Anthropic's list prices in November 2026, so check the [current price
 
 | Variable | Needed for |
 |---|---|
-| `APP_PASSCODE` | **Required.** The passcode you type to unlock the app. Use a passphrase, not a PIN. |
+| `APP_PASSCODE` | Optional. Sets the passcode here instead of choosing it in the app, and takes over from an in-app one, which is how to recover a forgotten passcode. Use a passphrase, not a PIN. |
 | `DATABASE_URL` | **Required, set for you** by the Neon database the Deploy button creates. Locally, leave it unset and the app uses a built-in database. |
 | `CRON_SECRET` | Optional. Switches on the morning job: it plans the day before you wake and sends the reminder. Any long random text. |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | Optional. The morning push notification (needs `CRON_SECRET` too). Generate a pair with `npx web-push generate-vapid-keys`. `VAPID_SUBJECT` (e.g. `mailto:you@example.com`) is optional. |

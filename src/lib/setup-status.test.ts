@@ -12,13 +12,25 @@ describe("configProblems", () => {
     expect(configProblems()).not.toContain("no_database");
   });
 
-  it("asks for a passcode in production, except on the demo", () => {
+  it("asks for a passcode in production with nowhere to keep one, except on the demo", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("APP_PASSCODE", "");
+    vi.stubEnv("AUTH_SECRET", "");
+    vi.stubEnv("DATABASE_URL", "");
+    vi.stubEnv("VITEST", "");
     vi.stubEnv("DEMO_MODE", "");
     expect(configProblems()).toContain("no_passcode");
     vi.stubEnv("DEMO_MODE", "1");
     expect(configProblems()).not.toContain("no_passcode");
+  });
+
+  it("needs no passcode setting when the app can ask for one", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL", "1");
+    vi.stubEnv("DEMO_MODE", "");
+    vi.stubEnv("APP_PASSCODE", "");
+    vi.stubEnv("DATABASE_URL", "postgres://user:secret@host/db");
+    expect(configProblems()).toEqual([]);
   });
 
   it("is happy with a database and a passcode alone", () => {

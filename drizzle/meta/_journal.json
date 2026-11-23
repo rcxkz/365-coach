@@ -148,6 +148,13 @@
       "when": 1794933305980,
       "tag": "0020_equal_nitro",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795468439066,
+      "tag": "0021_smooth_sumo",
+      "breakpoints": true
     }
   ]
 }
