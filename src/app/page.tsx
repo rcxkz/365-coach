@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { getAi } from "@/ai/client";
 import { pauseTraining, planDay, resumeTraining } from "./actions";
 import { ActionCard } from "@/components/action-card";
@@ -111,7 +111,9 @@ export default async function TodayPage({
   const plannedDay = planned === date ? "Today" : "Tomorrow";
   // `paused` needs no notice: the pause card says it all.
   const notice = setup
-    ? "Saved. Every plan from now on follows your setup."
+    ? actions.length === 0
+      ? "Saved. Every plan follows your setup now — tap Plan today for your first one."
+      : "Saved. Every plan from now on follows your setup."
     : resumed
     ? trainedToday
       ? "Welcome back. The next few sessions are lighter on purpose, starting with the next one."
@@ -138,6 +140,54 @@ export default async function TodayPage({
   const workoutSummary = workout
     ? `${workout.exercises.length} exercises · ~${workout.durationMinutes ?? 45} min`
     : null;
+
+  // A brand-new copy: setup is the whole screen, so the first thing a
+  // person sees is the one step that makes it work, not an empty plan.
+  if (!isSetUp && actions.length === 0 && !pause) {
+    return (
+      <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 py-10">
+        <p className="eyebrow">Welcome</p>
+        <h1 className="mt-3 text-[2.25rem] font-normal leading-[1.05]">
+          It&apos;s up and running.
+          <em className="block pl-[0.55em]">Now make it yours.</em>
+        </h1>
+        <p className="mt-5 text-muted-foreground">
+          Two minutes of taps tell it how you train, what to look after and how you eat. Then it
+          plans your first day.
+        </p>
+        <ul className="mt-6 flex flex-col divide-y divide-dotted divide-border border-y border-border text-sm">
+          {[
+            "Your plan, and how many days a week",
+            "Equipment and session length",
+            "Anything to look after",
+            "How you eat, and who for",
+            "What you'd like to track",
+          ].map((item) => (
+            <li key={item} className="py-2.5">
+              {item}
+            </li>
+          ))}
+        </ul>
+        <Link
+          href="/setup"
+          className="mt-8 flex h-12 items-center justify-center gap-2 bg-primary text-base font-medium text-primary-foreground"
+        >
+          Make it yours <ArrowRight className="h-4 w-4" aria-hidden />
+        </Link>
+        <form className="mt-3">
+          <PendingButton
+            pendingLabel="Planning…"
+            formAction={planDay.bind(null, date)}
+            variant="ghost"
+            className="w-full text-muted-foreground"
+            type="submit"
+          >
+            Skip for now and plan today with the defaults
+          </PendingButton>
+        </form>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-4 py-8">

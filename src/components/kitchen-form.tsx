@@ -214,6 +214,9 @@ export function KitchenForm({
         </section>
       </div>
 
+      {/* Room for the save bar, so the last row isn't hidden under it. */}
+      <div aria-hidden className="h-16" />
+
       {/* Sticky, because the list is long and the save belongs wherever
           you finish tapping rather than at the bottom of a scroll. It
           sits above the tab bar. */}

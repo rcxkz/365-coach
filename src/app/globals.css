@@ -161,4 +161,11 @@
   .device-screen::-webkit-scrollbar {
     display: none;
   }
+  /* A fixed-height flex column shrinks its children to fit; the empty
+     spacer above the tab bar would shrink to nothing and the page's
+     last lines would sit under the bar. Children keep their size and
+     the screen scrolls instead. */
+  .device-screen > * {
+    flex-shrink: 0;
+  }
 }
