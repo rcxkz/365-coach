@@ -1,0 +1,28 @@
+# 365 Coach (Project 365)
+
+> A calm personal coach for training and food that you run yourself: a single-user Next.js web app on Vercel with a Neon Postgres database. It plans each day's session around how you feel and the week's meals around what's in your kitchen, and it works without AI (rules-only) or with your own AI key.
+
+To deploy your own copy: use the "Deploy with Vercel" button in README.md. It clones the repo, offers a Neon database (Add Products → Neon → Add), and asks for one value, APP_PASSCODE. The first build creates the tables. Then open the app, unlock it and tap "Make it yours".
+
+Optional features are environment variables in Vercel, and each needs a redeploy:
+- ANTHROPIC_API_KEY (Claude, default), or OPENAI_API_KEY, or AI_API_KEY + AI_BASE_URL + AI_MODEL for other providers: the AI coach.
+- CRON_SECRET: plans the day each morning.
+- VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY: the morning notification.
+- APP_TIME_ZONE: the owner's time zone.
+
+Never set DEMO_MODE on a real deployment.
+
+## Docs
+
+- [README](README.md): deploy steps, "Get it working properly", troubleshooting, the environment table, and facts for AI assistants.
+- [AGENTS.md](AGENTS.md): rules for changing the code, and for helping someone set up a copy.
+- [How it works](docs/HOW_IT_WORKS.md): the architecture and principles.
+- [Build log](docs/BUILD_LOG.md): how it was built.
+
+## Key files
+
+- src/theme/: colours, fonts and the maker's stamp. This is the only place to restyle.
+- src/domain/templates.ts: training plans.
+- src/ai/client.ts: the AI provider adapter (Claude or OpenAI-compatible).
+- src/app/setup/: the setup questions.
+- scripts/predeploy.ts: database migrations and library loading on deploy.

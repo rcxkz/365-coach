@@ -14,3 +14,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - **User-facing copy follows the behavioural principles:** calm, no guilt language, recommend before instructing, explain why briefly, always end with a next action.
 - **Layer rules:** `src/domain` is pure TypeScript (no React/DB/AI imports); `src/data` is the only layer touching the database; AI writes durable artifacts via `src/data`, and the UI never blocks on live AI. Each layer folder has a README with its import rules.
 - **Workflow:** small reviewable phases; tests alongside every change (`npm test`); keep the rules-only fallback working whenever AI behaviour changes.
+
+## Helping someone set up their own copy
+
+Most people arrive by pasting this repo's link into an assistant. If that's you:
+
+- **Deploying:** point them at the **Deploy with Vercel** button at the top of `README.md` and walk them through its five steps. Don't have them run migrations or create tables by hand: the first production build does it (`scripts/predeploy.ts`).
+- **Turning things on:** the "Get it working properly" table in the README lists each optional feature and the exact environment variable for it. Every change needs a redeploy.
+- **Settings, not code:** prefer environment variables to code changes for keys and options. Never put a key or passcode in the code or a commit.
+- **Never set `DEMO_MODE`** on someone's own copy: it switches AI off and lets a nightly job wipe the data.
+- **Restyling:** edit only `src/theme/`. A test fails if a colour is hard-coded anywhere else.
+
