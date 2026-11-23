@@ -9,6 +9,9 @@ import { requireSession } from "@/lib/require-session";
 export async function saveSetup(formData: FormData): Promise<void> {
   await requireSession();
   const on = (name: string) => formData.getAll("modules").includes(name);
+  // The page won't submit with no part chosen; this covers anything that
+  // gets past it, rather than saving an app with nothing switched on.
+  if (!on("train") && !on("fuel") && !on("journal")) redirect("/setup?pick=1");
   await saveProfile({
     name: formData.get("name"),
     modules: { train: on("train"), fuel: on("fuel"), journal: on("journal") },

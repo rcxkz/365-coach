@@ -1,4 +1,7 @@
+import { Check } from "lucide-react";
 import { saveSetup } from "./actions";
+import { ModulePicker } from "./module-picker";
+import { ChoiceChips } from "@/components/choice-chips";
 import { Button } from "@/components/ui/button";
 import { getProfile } from "@/data/repos/profile";
 import { BODY_AREAS } from "@/domain/exercises";
@@ -7,39 +10,6 @@ import { PLAN_STYLES, PLANS } from "@/domain/templates";
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Your setup" };
-
-type Option = { value: string; label: string };
-
-function Chips({
-  name,
-  options,
-  checked,
-  multiple = false,
-}: {
-  name: string;
-  options: Option[];
-  checked: string[];
-  multiple?: boolean;
-}) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {options.map((option) => (
-        <label key={option.value}>
-          <input
-            type={multiple ? "checkbox" : "radio"}
-            name={name}
-            value={option.value}
-            defaultChecked={checked.includes(option.value)}
-            className="peer sr-only"
-          />
-          <span className="inline-flex cursor-pointer items-center rounded-md border border-input bg-background px-3 py-1.5 text-sm transition-colors peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring">
-            {option.label}
-          </span>
-        </label>
-      ))}
-    </div>
-  );
-}
 
 function Question({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -60,11 +30,20 @@ const area = (key: string) => key.replace(/_/g, " ");
  * a couple of minutes, all taps. Every answer can be changed later from
  * Settings, and nothing here is required: the defaults are sensible.
  */
-export default async function SetupPage() {
+export default async function SetupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ pick?: string }>;
+}) {
+  const { pick } = await searchParams;
   const { profile, isSetUp } = await getProfile();
-  const modules = Object.entries(profile.modules)
-    .filter(([, on]) => on)
-    .map(([key]) => key);
+  // A first setup starts with nothing chosen: you tap what you want,
+  // rather than untapping what you don't (which read the wrong way round).
+  const modules = isSetUp
+    ? Object.entries(profile.modules)
+        .filter(([, on]) => on)
+        .map(([key]) => key)
+    : [];
 
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-4 py-8">
@@ -78,6 +57,11 @@ export default async function SetupPage() {
           and you can change any of them later in Settings.
         </p>
       </header>
+      {pick && (
+        <p role="status" className="mb-4 border border-border p-3 text-sm">
+          Pick at least one part below (Training, Food or How I feel), then save.
+        </p>
+      )}
 
       <form action={saveSetup} className="flex flex-col gap-8 pb-8">
         <section className="flex flex-col gap-5">
@@ -89,17 +73,15 @@ export default async function SetupPage() {
               className="h-10 rounded-md border border-input bg-background px-3 text-sm"
             />
           </Question>
-          <Question title="What do you want help with?" hint="Switch off anything you don't need — it disappears.">
-            <Chips
-              name="modules"
-              multiple
-              checked={modules}
-              options={[
-                { value: "train", label: "Training" },
-                { value: "fuel", label: "Food" },
-                { value: "journal", label: "How I feel" },
-              ]}
-            />
+          <Question
+            title="What do you want help with?"
+            hint={
+              isSetUp
+                ? "Switch off anything you don't need — it disappears."
+                : "Tap each part you'd like. You can change it later."
+            }
+          >
+            <ModulePicker checked={modules} />
           </Question>
         </section>
 
@@ -116,16 +98,19 @@ export default async function SetupPage() {
                     defaultChecked={profile.training.plan === style}
                     className="peer sr-only"
                   />
-                  <span className="block cursor-pointer rounded-md border border-input bg-background px-3 py-2.5 transition-colors peer-checked:border-primary peer-checked:ring-1 peer-checked:ring-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring">
-                    <span className="block text-sm font-medium">{PLANS[style].label}</span>
-                    <span className="block text-xs text-muted-foreground">{PLANS[style].description}</span>
+                  <span className="flex cursor-pointer items-start gap-3 border border-input px-3 py-2.5 transition-colors hover:border-foreground/60 peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring [&_.tick]:invisible peer-checked:[&_.tick]:visible [&_.desc]:text-muted-foreground peer-checked:[&_.desc]:text-primary-foreground/75">
+                    <Check className="tick mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                    <span>
+                      <span className="block text-sm font-medium">{PLANS[style].label}</span>
+                      <span className="desc block text-xs">{PLANS[style].description}</span>
+                    </span>
                   </span>
                 </label>
               ))}
             </div>
           </Question>
           <Question title="Experience">
-            <Chips
+            <ChoiceChips
               name="experience"
               checked={[profile.training.experience]}
               options={[
@@ -136,7 +121,7 @@ export default async function SetupPage() {
             />
           </Question>
           <Question title="Coming back after time off?" hint="Sessions start lighter and build back up.">
-            <Chips
+            <ChoiceChips
               name="returning"
               checked={[profile.training.returning ? "yes" : "no"]}
               options={[
@@ -146,21 +131,21 @@ export default async function SetupPage() {
             />
           </Question>
           <Question title="Days a week" hint="The most it plans — once a week has them, the rest is rest. Never a target to catch up on.">
-            <Chips
+            <ChoiceChips
               name="daysPerWeek"
               checked={[String(profile.training.daysPerWeek)]}
               options={[2, 3, 4, 5, 6].map((n) => ({ value: String(n), label: String(n) }))}
             />
           </Question>
           <Question title="Time per session">
-            <Chips
+            <ChoiceChips
               name="sessionMinutes"
               checked={[String(profile.training.sessionMinutes)]}
               options={[30, 45, 60, 75].map((n) => ({ value: String(n), label: `${n} min` }))}
             />
           </Question>
           <Question title="Where you train">
-            <Chips
+            <ChoiceChips
               name="equipment"
               checked={[profile.training.equipment]}
               options={[
@@ -174,7 +159,7 @@ export default async function SetupPage() {
             title="Anything to look after?"
             hint="Every session treats these with care — controlled range, nothing grinding. Pain on the day is logged separately."
           >
-            <Chips
+            <ChoiceChips
               name="protect"
               multiple
               checked={profile.protect}
@@ -186,7 +171,7 @@ export default async function SetupPage() {
         <section className="flex flex-col gap-5 border-t border-border pt-6">
           <h2 className="eyebrow">Food</h2>
           <Question title="Any rules?" hint="Meals that break one are never suggested.">
-            <Chips
+            <ChoiceChips
               name="diet"
               multiple
               checked={profile.food.diet}
@@ -200,7 +185,7 @@ export default async function SetupPage() {
             />
           </Question>
           <Question title="Cooking for">
-            <Chips
+            <ChoiceChips
               name="householdSize"
               checked={[String(profile.food.householdSize)]}
               options={[1, 2, 3, 4, 5].map((n) => ({
@@ -210,7 +195,7 @@ export default async function SetupPage() {
             />
           </Question>
           <Question title="The habit you'd most like to beat" hint="The coach aims its suggestions here.">
-            <Chips
+            <ChoiceChips
               name="habit"
               checked={[profile.food.habit]}
               options={[
