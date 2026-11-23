@@ -23,7 +23,7 @@ export default async function MobilityCheckPage() {
       </Link>
 
       <header className="mt-4 mb-6">
-        <h1 className="text-[1.75rem] font-semibold leading-none tracking-tight">
+        <h1 className="text-[1.75rem] font-normal leading-none">
           Mobility check
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">

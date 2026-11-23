@@ -140,7 +140,7 @@ export default async function FuelPage({
       </Link>
 
       <header className="mt-4 mb-6">
-        <h1 className="text-[1.75rem] font-semibold leading-none tracking-tight">Fuel</h1>
+        <h1 className="text-[1.75rem] font-normal leading-none">Fuel</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           One decision for tonight, tomorrow&apos;s lunch handled before
           you&apos;re hungry, and one shop a week.
@@ -213,7 +213,7 @@ export default async function FuelPage({
           {day?.lunchSorted ? (
             <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
               <p className="text-sm">
-                <Check className="mr-1 inline h-4 w-4 text-signal-go" />
+                <Check className="mr-1 inline h-4 w-4 text-foreground" />
                 Sorted — that&apos;s the delivery decision already made.
               </p>
               <Button

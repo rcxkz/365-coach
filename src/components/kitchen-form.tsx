@@ -158,7 +158,7 @@ export function KitchenForm({
                       onClick={() => cycle(ingredient)}
                       aria-label={`${formatIngredient(ingredient)}: ${state === "low" ? "running low" : state === "in" ? "in" : "not in"}`}
                       className={cn(
-                        "rounded-full border px-3 py-1.5 text-sm transition-colors",
+                        "border px-3 py-1.5 text-sm transition-colors",
                         state === "in" && "border-foreground bg-foreground text-background",
                         state === "low" && "border-signal-ease bg-signal-ease/10 text-foreground",
                         !state && "border-border text-muted-foreground hover:border-foreground/40",
@@ -217,7 +217,7 @@ export function KitchenForm({
       {/* Sticky, because the list is long and the save belongs wherever
           you finish tapping rather than at the bottom of a scroll. It
           sits above the tab bar. */}
-      <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 border-t border-border bg-background/95 backdrop-blur">
+      <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 border-t border-border bg-background">
         <div className="mx-auto flex w-full max-w-md items-center gap-3 px-4 py-3">
           <p className="figure flex-1 text-xs text-muted-foreground">
             {stock.size} in{lowCount > 0 ? ` · ${lowCount} low` : ""}

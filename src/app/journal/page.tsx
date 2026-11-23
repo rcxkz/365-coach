@@ -133,7 +133,7 @@ export default async function JournalPage({
     <main className="mx-auto w-full max-w-md flex-1 px-4 py-8">
       <header className="mb-6">
         <p className="eyebrow">Journal</p>
-        <h1 className="mt-1.5 text-[1.75rem] font-semibold leading-none tracking-tight">
+        <h1 className="mt-1.5 text-[1.75rem] font-normal leading-none">
           How are you feeling?
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">

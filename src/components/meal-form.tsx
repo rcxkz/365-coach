@@ -59,7 +59,7 @@ function IngredientPicker({
               type="button"
               onClick={() => onChange(value.filter((item) => item !== key))}
               aria-label={`Remove ${formatIngredient(key)}`}
-              className="inline-flex items-center gap-1 rounded-full border border-foreground bg-foreground px-3 py-1 text-sm text-background"
+              className="inline-flex items-center gap-1 border border-foreground bg-foreground px-3 py-1 text-sm text-background"
             >
               {formatIngredient(key)} <X className="h-3 w-3" />
             </button>

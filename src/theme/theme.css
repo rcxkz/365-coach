@@ -1,0 +1,77 @@
+/*
+ * THE LOOK — every colour and the corner radius, in one file.
+ *
+ * To make the app your own, change the palette block below. Everything
+ * else in the app reads the semantic names (--background, --highlight,
+ * --signal-go…), never a hex value, so this is the only file to edit.
+ * Fonts are in src/theme/fonts.ts; the maker's stamp in src/theme/brand.ts.
+ *
+ * Keep text colours at 4.5:1 contrast or better against --background.
+ */
+
+/*
+ * Rykz Design DNA v2, dark stock (Build No. 03).
+ *
+ * One dark theme, built only from the DNA's locked tokens: ink is the
+ * surface, paper is the type, brass is the one accent (on dark stock
+ * brass replaces marker, and it passes as text: 6.9:1). Cards are paper
+ * rules rather than a second grey, radius is 0, there are no shadows.
+ *
+ * Contrast on ink: paper 14.7:1, --paper-dim 10.5:1, --paper-muted 6.6:1,
+ * brass 6.9:1. Win and marker fail as small text on ink (3.0:1, 4.0:1),
+ * so they only ever colour dots, fills and rules — the words beside them
+ * stay paper.
+ */
+:root {
+  color-scheme: dark;
+  --ink: #181818;
+  --paper: #EFE9DD;
+  --paper-dim: #CFC6B3;
+  --paper-muted: #A39D8F;
+  --marker: #D9412B;
+  --brass: #C99A2E;
+  --win: #3D6E4A;
+  --slate: #5A6470;
+  --cap-blue: #5C8FB8;
+
+  /* The one accent: kicker dots, the current tab, focus rings. */
+  --highlight: var(--brass);
+
+  --background: var(--ink);
+  --foreground: var(--paper);
+  --card: var(--ink);
+  --card-foreground: var(--paper);
+  --popover: var(--ink);
+  --popover-foreground: var(--paper);
+  /* Primary is paper on ink, reversed: the DNA's own ink/paper flip. */
+  --primary: var(--paper);
+  --primary-foreground: var(--ink);
+  --secondary: color-mix(in srgb, var(--paper) 8%, var(--ink));
+  --secondary-foreground: var(--paper);
+  --muted: color-mix(in srgb, var(--paper) 6%, var(--ink));
+  --muted-foreground: var(--paper-muted);
+  --accent: color-mix(in srgb, var(--paper) 8%, var(--ink));
+  --accent-foreground: var(--paper);
+  --destructive: var(--marker);
+  --border: color-mix(in srgb, var(--paper) 22%, transparent);
+  --input: color-mix(in srgb, var(--paper) 34%, transparent);
+  --ring: var(--highlight);
+  /* Readiness (doc 12): go · ease · stop. */
+  --signal-go: var(--win);
+  --signal-ease: var(--brass);
+  --signal-stop: var(--marker);
+  --chart-1: var(--paper);
+  --chart-2: var(--brass);
+  --chart-3: var(--cap-blue);
+  --chart-4: var(--win);
+  --chart-5: var(--slate);
+  --radius: 0rem;
+  --sidebar: var(--ink);
+  --sidebar-foreground: var(--paper);
+  --sidebar-primary: var(--paper);
+  --sidebar-primary-foreground: var(--ink);
+  --sidebar-accent: var(--secondary);
+  --sidebar-accent-foreground: var(--paper);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--highlight);
+}

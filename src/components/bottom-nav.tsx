@@ -2,15 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarCheck, Dumbbell, LineChart, NotebookPen, UtensilsCrossed } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
-  { href: "/", label: "Today", icon: CalendarCheck, module: null },
-  { href: "/workout", label: "Train", icon: Dumbbell, module: "train" },
-  { href: "/fuel", label: "Fuel", icon: UtensilsCrossed, module: "fuel" },
-  { href: "/journal", label: "Journal", icon: NotebookPen, module: "journal" },
-  { href: "/progress", label: "Progress", icon: LineChart, module: "train" },
+  { href: "/", label: "Today", module: null },
+  { href: "/workout", label: "Train", module: "train" },
+  { href: "/fuel", label: "Fuel", module: "fuel" },
+  { href: "/journal", label: "Journal", module: "journal" },
+  { href: "/progress", label: "Progress", module: "train" },
 ] as const;
 
 /**
@@ -34,10 +33,10 @@ export function BottomNav({
       <div aria-hidden className="h-[calc(3.5rem+env(safe-area-inset-bottom))]" />
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background pb-[env(safe-area-inset-bottom)]"
       >
         <ul className="mx-auto flex max-w-md">
-          {tabs.map(({ href, label, icon: Icon }) => {
+          {tabs.map(({ href, label }) => {
             const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
             return (
               <li key={href} className="flex-1">
@@ -45,11 +44,14 @@ export function BottomNav({
                   href={href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex h-14 flex-col items-center justify-center gap-1 text-[0.625rem] font-medium uppercase tracking-[0.12em] transition-colors",
+                    "flex h-14 flex-col items-center justify-center gap-1 font-mono text-[0.625rem] font-bold uppercase tracking-[0.14em] transition-colors",
                     active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  <Icon className="h-5 w-5" strokeWidth={active ? 2.25 : 1.75} />
+                  {/* The DNA has no icon set: a brass ● marks where you are. */}
+                  <span aria-hidden className={active ? "text-highlight" : "invisible"}>
+                    ●
+                  </span>
                   {label}
                 </Link>
               </li>

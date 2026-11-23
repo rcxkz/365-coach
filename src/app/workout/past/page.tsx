@@ -41,7 +41,7 @@ export default async function PastSessionsPage({
 
       <header className="mt-4 mb-6">
         <p className="eyebrow">Earlier sessions</p>
-        <h1 className="mt-1.5 text-[1.75rem] font-semibold leading-none tracking-tight">
+        <h1 className="mt-1.5 text-[1.75rem] font-normal leading-none">
           Trained but not logged?
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">

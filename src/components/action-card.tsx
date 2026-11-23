@@ -80,7 +80,7 @@ export function ActionCard({
           {/* Meta sits under the title so a long session name can breathe. */}
           <p className="figure mt-1.5 text-xs text-muted-foreground">
             {action.status === "done" ? (
-              <span className="text-signal-go">session logged</span>
+              <span className="text-foreground"><span className="text-signal-go">●</span> session logged</span>
             ) : (
               workoutSummary
             )}

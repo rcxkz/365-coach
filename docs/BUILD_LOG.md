@@ -44,6 +44,11 @@
 - **Your own journal trackers:** a 1–5 scale, yes/no, or a number with a unit.
 - **Demo mode and deploy-your-own:** a made-up person rebuilt nightly through the real planners, rules-only so the demo costs nothing, with a guarded reset that refuses to run on any real deployment.
 
+## Rykz look (November)
+
+- **One dark theme** in the Rykz Design DNA: ink background, paper type, brass as the one accent. Every text colour passes 4.5:1 contrast; colours that don't (green, red) only mark dots and rules, never words.
+- **Type:** DM Serif Display headings, Source Serif 4 text, Geist Mono kickers and figures. Square edges, no shadows, and a tab bar with no icons.
+
 ## How the work was run
 
 - **Propose before building:** every phase started with a short design and its trade-offs, then a decision record (`D*`, `G*`, `Y*`…).

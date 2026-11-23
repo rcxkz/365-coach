@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MakerStamp } from "@/components/maker-stamp";
 import { ArrowLeft } from "lucide-react";
 import {
   addCoachNote,
@@ -49,7 +50,7 @@ export default async function SettingsPage({
         <ArrowLeft className="h-4 w-4" /> Today
       </Link>
       <header className="mt-4 mb-6">
-        <h1 className="text-[1.75rem] font-semibold leading-none tracking-tight">
+        <h1 className="text-[1.75rem] font-normal leading-none">
           Settings
         </h1>
       </header>
@@ -196,6 +197,7 @@ export default async function SettingsPage({
           </ul>
         )}
       </section>
+      <MakerStamp />
     </main>
   );
 }

@@ -253,7 +253,7 @@ export default async function WeekPage({
 
       <header className="mt-4 mb-6">
         <p className="eyebrow">This week</p>
-        <h1 className="mt-1.5 text-[1.75rem] font-semibold leading-none tracking-tight">
+        <h1 className="mt-1.5 text-[1.75rem] font-normal leading-none">
           {formatWeek(weekStart)}
         </h1>
         {items.length > 0 && (

@@ -38,7 +38,7 @@ export default async function MealsPage({
       <header className="mt-4 mb-6 flex items-end justify-between gap-3">
         <div>
           <p className="eyebrow">Meals</p>
-          <h1 className="mt-1.5 text-[1.75rem] font-semibold leading-none tracking-tight">
+          <h1 className="mt-1.5 text-[1.75rem] font-normal leading-none">
             What gets cooked
           </h1>
         </div>

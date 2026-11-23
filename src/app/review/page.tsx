@@ -34,7 +34,7 @@ const CALL_META: Record<
   progress: {
     label: "Step up",
     icon: ArrowUpRight,
-    className: "text-signal-go",
+    className: "text-foreground",
   },
   hold: { label: "Repeat", icon: Minus, className: "text-muted-foreground" },
   ease: {
@@ -80,7 +80,7 @@ export default async function ReviewPage({
       </Link>
 
       <header className="mt-4 mb-6">
-        <h1 className="text-[1.75rem] font-semibold leading-none tracking-tight">Weekly review</h1>
+        <h1 className="text-[1.75rem] font-normal leading-none">Weekly review</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {review
             ? formatRange(review.weekStart, review.weekEnd)

@@ -35,7 +35,7 @@ export default async function EditMealPage({
       </Link>
       <header className="mt-4 mb-6">
         <p className="eyebrow">Your meal</p>
-        <h1 className="mt-1.5 text-[1.75rem] font-semibold leading-none tracking-tight">
+        <h1 className="mt-1.5 text-[1.75rem] font-normal leading-none">
           {meal.name}
         </h1>
       </header>

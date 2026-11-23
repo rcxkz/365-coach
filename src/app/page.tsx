@@ -137,7 +137,7 @@ export default async function TodayPage({
     <main className="mx-auto w-full max-w-md flex-1 px-4 py-8">
       <header className="mb-7">
         <p className="eyebrow">Today</p>
-        <h1 className="mt-1.5 text-[1.75rem] font-semibold leading-none tracking-tight">
+        <h1 className="mt-1.5 text-[1.75rem] font-normal leading-none">
           {formatToday()}
         </h1>
         {actions.length > 0 && (

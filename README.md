@@ -1,3 +1,5 @@
+<sub>● A Rykz build · No. 03 · v1.0</sub>
+
 # Project 365
 
 A calm personal coach for training and food that you run yourself. It plans each day's session around how you feel, plans the week's meals around what's in your kitchen, and never makes you feel behind.
@@ -71,6 +73,7 @@ Your own app, your own database, your own data. One person per deployment, prote
 | `DATABASE_URL` | Set for you by Vercel's Neon integration. Unset locally, the app uses a built-in database. |
 | `ANTHROPIC_API_KEY` | Optional. The AI coach ([get a key](https://console.anthropic.com)). |
 | `APP_TIME_ZONE` | Optional. Your time zone, e.g. `America/New_York`. Defaults to `Europe/London`. |
+| `MAKER_STAMP` | Optional. Set to `1` to show the maker's stamp in Settings. |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | Optional. The morning push reminder. Generate with `npx web-push generate-vapid-keys`. |
 
 **Morning job timing:** `vercel.json` runs it at 06:00 and 07:00 UTC, which lands in the 7am hour in the UK all year round. For another time zone, change those two hours so one of them falls in your 7am hour. On Vercel's free plan each job runs at some point within its hour.
@@ -85,6 +88,28 @@ npm run build
 ```
 
 The stack is Next.js (App Router), TypeScript, Tailwind, Postgres via Drizzle (Neon in production, PGlite locally) and Claude via the Anthropic SDK. The layer rules are in [AGENTS.md](AGENTS.md) and each `src/*` folder's README.
+
+## Make the look yours
+
+The whole look lives in one folder, `src/theme/`:
+
+| File | What it holds |
+|---|---|
+| `theme.css` | Every colour and the corner radius. Change the palette block at the top. |
+| `fonts.ts` | The three typefaces (headings, text, figures). Any Google font works. |
+| `brand.ts` | The small maker's stamp in Settings, hidden on your copy unless you set `MAKER_STAMP=1`. |
+
+The rest of the app only uses names like `--background` and `--highlight`, never a colour value, and a test fails if one creeps in. Keep text at 4.5:1 contrast or better against your background.
+
+The look it ships with is the Rykz Design DNA, dark version:
+
+| | |
+|---|---|
+| Display | DM Serif Display, with Source Serif 4 for text and Geist Mono for labels and figures |
+| Accent | Brass #C99A2E on ink #181818 |
+| Mood | Calm, steady, unhurried |
+
+It's one dark theme, with square edges and no shadows. Colour is kept for meaning: brass marks where you are, and the readiness dots are go, ease and stop.
 
 ## Licence
 

@@ -65,8 +65,8 @@ export function ShoppingList({ aisles }: { aisles: ShoppingAisle[] }) {
                       onClick={() => set(item.id, settled ? "needed" : "bought")}
                       aria-label={settled ? `Put ${item.label} back on the list` : `Got ${item.label}`}
                       className={cn(
-                        "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border",
-                        settled ? "border-signal-go bg-signal-go text-background" : "border-input",
+                        "flex h-7 w-7 shrink-0 items-center justify-center border",
+                        settled ? "border-signal-go bg-signal-go text-foreground" : "border-input",
                       )}
                     >
                       {settled && <Check className="h-4 w-4" />}

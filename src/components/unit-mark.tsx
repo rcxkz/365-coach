@@ -58,7 +58,7 @@ export function UnitMark({
         <span
           key={index}
           className={cn(
-            "h-[4px] w-3.5 rounded-full transition-colors",
+            "h-[4px] w-3.5 transition-colors",
             index < safeFilled ? TONE_FILL[tone] : "bg-foreground/22",
           )}
         />

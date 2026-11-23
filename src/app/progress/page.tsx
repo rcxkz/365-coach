@@ -47,7 +47,7 @@ function TrendNote({ trend }: { trend: MetricTrend | undefined }) {
       className={cn(
         "inline-flex items-center gap-1 text-xs",
         trend.improving === true
-          ? "text-signal-go"
+          ? "text-foreground"
           : "text-muted-foreground",
       )}
     >
@@ -93,7 +93,7 @@ export default async function ProgressPage({
       </Link>
 
       <header className="mt-4 mb-6">
-        <h1 className="text-[1.75rem] font-semibold leading-none tracking-tight">Progress</h1>
+        <h1 className="text-[1.75rem] font-normal leading-none">Progress</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Block 1 — Rebuild. Numbers when you have them; nothing here is owed.
         </p>
@@ -128,7 +128,7 @@ export default async function ProgressPage({
                 <p className="text-sm font-medium">
                   {criterion.label}
                   {criterion.status === "met" && (
-                    <Check className="ml-1 inline h-3.5 w-3.5 text-signal-go" />
+                    <Check className="ml-1 inline h-3.5 w-3.5 text-foreground" />
                   )}
                 </p>
                 <p className="text-xs text-muted-foreground">

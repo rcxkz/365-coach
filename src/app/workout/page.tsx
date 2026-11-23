@@ -103,7 +103,7 @@ export default async function WorkoutPage({
                 : "Today's session"}
         </p>
         <div className="mt-1.5 flex items-center gap-2">
-          <h1 className="text-[1.75rem] font-semibold leading-none tracking-tight">
+          <h1 className="text-[1.75rem] font-normal leading-none">
             {workout.title}
           </h1>
           {completed && <Badge variant="secondary">Completed</Badge>}

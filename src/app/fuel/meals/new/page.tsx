@@ -60,7 +60,7 @@ export default async function NewMealPage({
       </Link>
       <header className="mt-4 mb-6">
         <p className="eyebrow">{source ? "Copy & tweak" : "Add a meal"}</p>
-        <h1 className="mt-1.5 text-[1.75rem] font-semibold leading-none tracking-tight">
+        <h1 className="mt-1.5 text-[1.75rem] font-normal leading-none">
           {source ? source.name : "Something you cook"}
         </h1>
       </header>

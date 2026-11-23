@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { BRAND } from "@/theme/brand";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -8,8 +9,8 @@ export default function manifest(): MetadataRoute.Manifest {
       "A calm personal operating system that tells you what matters next.",
     start_url: "/",
     display: "standalone",
-    background_color: "#0a0a0a",
-    theme_color: "#0a0a0a",
+    background_color: BRAND.themeColor,
+    theme_color: BRAND.themeColor,
     // PNGs are required for iOS home screen and Android maskable icons;
     // the SVG stays as the crisp any-size fallback.
     icons: [
