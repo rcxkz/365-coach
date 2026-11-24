@@ -336,9 +336,6 @@ export default async function TodayPage({
         <Link href="/review" className="underline-offset-4 hover:underline">
           Weekly review
         </Link>
-        <Link href="/settings" className="underline-offset-4 hover:underline">
-          Settings
-        </Link>
       </div>
       {!pause && profile.modules.train && (
         <p className="mt-6 text-center text-xs text-muted-foreground">

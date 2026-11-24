@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MakerStamp } from "@/components/maker-stamp";
 import { inAppPasscode } from "@/lib/auth";
+import { isDemo } from "@/lib/demo";
 import { ArrowLeft } from "lucide-react";
 import {
   changePasscode,
@@ -15,6 +16,8 @@ import { Button } from "@/components/ui/button";
 import { listRuledOutExercises } from "@/data/repos/exercises";
 import { listRuledOutMeals } from "@/data/repos/fuel";
 import { listMemories } from "@/data/repos/memories";
+import { getProfile } from "@/data/repos/profile";
+import { setupSummary } from "../setup/options";
 import { vapidPublicKey } from "@/services/push";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +32,41 @@ const NOTICES: Record<string, string> = {
 
 const textarea =
   "min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
+function SetupGroup({
+  title,
+  href,
+  rows,
+}: {
+  title: string;
+  href: string;
+  rows: { label: string; value: string }[];
+}) {
+  return (
+    <div className="border-b border-dotted border-border py-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-medium">{title}</p>
+        <Link href={href} className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+          Change
+        </Link>
+      </div>
+      <div className="mt-1 text-sm">
+        {rows.map((row) =>
+          row.label ? (
+            <p key={row.label} className="flex gap-2">
+              <span className="w-32 shrink-0 text-muted-foreground">{row.label}</span>
+              <span>{row.value}</span>
+            </p>
+          ) : (
+            <p key={row.value} className="text-muted-foreground">
+              {row.value}
+            </p>
+          ),
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default async function SettingsPage({
   searchParams,
@@ -47,11 +85,13 @@ export default async function SettingsPage({
   const publicKey = vapidPublicKey();
   // The morning job only runs where Vercel can authenticate it.
   const morningJobOn = Boolean(process.env.CRON_SECRET?.trim());
-  const [notes, exercises, meals] = await Promise.all([
+  const [notes, exercises, meals, { profile }] = await Promise.all([
     listMemories({ domain: "fitness", status: "active" }),
     listRuledOutExercises(),
     listRuledOutMeals(),
+    getProfile(),
   ]);
+  const summary = setupSummary(profile);
 
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-4 py-8">
@@ -67,18 +107,31 @@ export default async function SettingsPage({
         </h1>
       </header>
 
-      <Link
-        href="/setup"
-        className="mb-6 flex items-center justify-between gap-3 border-y border-border py-4"
-      >
-        <span>
-          <span className="block text-sm font-medium">Your setup</span>
-          <span className="block text-xs text-muted-foreground">
-            Training, what to look after, food rules, which parts are on.
-          </span>
-        </span>
-        <span className="text-sm text-muted-foreground">Edit →</span>
-      </Link>
+      {/* Your setup: every answer in view, each group one tap from changing. */}
+      <section aria-labelledby="your-setup" className="mb-6 border-t border-border pt-4">
+        <h2 id="your-setup" className="eyebrow mb-3">
+          Your setup
+        </h2>
+        <SetupGroup title="Parts switched on" href="/setup#parts" rows={[{ label: "", value: summary.parts }]} />
+        {profile.modules.train && <SetupGroup title="Training" href="/setup#training" rows={summary.training} />}
+        {profile.modules.fuel && <SetupGroup title="Food" href="/setup#food" rows={summary.food} />}
+        {profile.modules.journal && (
+          <SetupGroup
+            title="How I feel"
+            href="/journal/trackers"
+            rows={[{ label: "", value: "Choose which questions the journal asks, and add your own trackers." }]}
+          />
+        )}
+        <Link
+          href="/setup?fresh=1"
+          className="mt-3 inline-flex min-h-11 items-center border border-input px-4 text-sm hover:border-foreground/60"
+        >
+          Redo setup from scratch
+        </Link>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Starts the questions again with nothing chosen. Your history, meals and journal stay.
+        </p>
+      </section>
 
       {saved && NOTICES[saved] && (
         <p className="mb-6 rounded-lg bg-secondary p-3 text-sm">{NOTICES[saved]}</p>
@@ -230,6 +283,11 @@ export default async function SettingsPage({
               <Button type="submit" variant="outline" className="self-start">Change passcode</Button>
             </form>
           </>
+        ) : isDemo() ? (
+          <p className="text-sm text-muted-foreground">
+            The demo is open to everyone. Your own copy asks you to choose a passcode the first
+            time you open it, and you can change it here.
+          </p>
         ) : (
           <p className="text-sm text-muted-foreground">
             Set by APP_PASSCODE in this deployment&apos;s environment. Change it there and redeploy;

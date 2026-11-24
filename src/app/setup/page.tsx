@@ -1,10 +1,21 @@
 import { Check } from "lucide-react";
 import { saveSetup } from "./actions";
 import { ModulePicker } from "./module-picker";
+import {
+  DAYS_OPTIONS,
+  DIET_OPTIONS,
+  EQUIPMENT_OPTIONS,
+  EXPERIENCE_OPTIONS,
+  HABIT_OPTIONS,
+  HOUSEHOLD_OPTIONS,
+  MINUTES_OPTIONS,
+  PROTECT_OPTIONS,
+  RETURNING_OPTIONS,
+} from "./options";
 import { ChoiceChips } from "@/components/choice-chips";
 import { Button } from "@/components/ui/button";
 import { getProfile } from "@/data/repos/profile";
-import { BODY_AREAS } from "@/domain/exercises";
+import { DEFAULT_PROFILE } from "@/domain/profile";
 import { PLAN_STYLES, PLANS } from "@/domain/templates";
 
 export const dynamic = "force-dynamic";
@@ -23,8 +34,6 @@ function Question({ title, hint, children }: { title: string; hint?: string; chi
   );
 }
 
-const area = (key: string) => key.replace(/_/g, " ");
-
 /**
  * Setup (Phase 15): the handful of answers that make the app yours —
  * a couple of minutes, all taps. Every answer can be changed later from
@@ -33,10 +42,15 @@ const area = (key: string) => key.replace(/_/g, " ");
 export default async function SetupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ pick?: string }>;
+  searchParams: Promise<{ pick?: string; fresh?: string }>;
 }) {
-  const { pick } = await searchParams;
-  const { profile, isSetUp } = await getProfile();
+  const { pick, fresh } = await searchParams;
+  const saved = await getProfile();
+  // "Redo setup from scratch" (from Settings): the defaults and nothing
+  // pre-chosen, as on a first run. Saving replaces the old answers.
+  const startAgain = Boolean(fresh);
+  const profile = startAgain ? DEFAULT_PROFILE : saved.profile;
+  const isSetUp = saved.isSetUp && !startAgain;
   // A first setup starts with nothing chosen: you tap what you want,
   // rather than untapping what you don't (which read the wrong way round).
   const modules = isSetUp
@@ -48,7 +62,7 @@ export default async function SetupPage({
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-4 py-8">
       <header className="mb-6">
-        <p className="eyebrow">{isSetUp ? "Your setup" : "Welcome"}</p>
+        <p className="eyebrow">{isSetUp ? "Your setup" : startAgain ? "Start again" : "Welcome"}</p>
         <h1 className="mt-1.5 text-[1.75rem] font-normal leading-none">
           {isSetUp ? "Change anything" : "Make it yours"}
         </h1>
@@ -64,7 +78,7 @@ export default async function SetupPage({
       )}
 
       <form action={saveSetup} className="flex flex-col gap-8 pb-8">
-        <section className="flex flex-col gap-5">
+        <section id="parts" className="flex scroll-mt-6 flex-col gap-5">
           <Question title="What should we call you?" hint="Optional.">
             <input
               name="name"
@@ -85,7 +99,7 @@ export default async function SetupPage({
           </Question>
         </section>
 
-        <section className="flex flex-col gap-5 border-t border-border pt-6">
+        <section id="training" className="flex scroll-mt-6 flex-col gap-5 border-t border-border pt-6">
           <h2 className="eyebrow">Training</h2>
           <Question title="Plan" hint="Sessions rotate through it in order — skip a day and nothing is lost.">
             <div className="flex flex-col gap-2">
@@ -113,46 +127,35 @@ export default async function SetupPage({
             <ChoiceChips
               name="experience"
               checked={[profile.training.experience]}
-              options={[
-                { value: "new", label: "New to it" },
-                { value: "some", label: "Some" },
-                { value: "experienced", label: "Experienced" },
-              ]}
+              options={EXPERIENCE_OPTIONS}
             />
           </Question>
           <Question title="Coming back after time off?" hint="Sessions start lighter and build back up.">
             <ChoiceChips
               name="returning"
               checked={[profile.training.returning ? "yes" : "no"]}
-              options={[
-                { value: "yes", label: "Yes" },
-                { value: "no", label: "No" },
-              ]}
+              options={RETURNING_OPTIONS}
             />
           </Question>
           <Question title="Days a week" hint="The most it plans — once a week has them, the rest is rest. Never a target to catch up on.">
             <ChoiceChips
               name="daysPerWeek"
               checked={[String(profile.training.daysPerWeek)]}
-              options={[2, 3, 4, 5, 6].map((n) => ({ value: String(n), label: String(n) }))}
+              options={DAYS_OPTIONS}
             />
           </Question>
           <Question title="Time per session">
             <ChoiceChips
               name="sessionMinutes"
               checked={[String(profile.training.sessionMinutes)]}
-              options={[30, 45, 60, 75].map((n) => ({ value: String(n), label: `${n} min` }))}
+              options={MINUTES_OPTIONS}
             />
           </Question>
           <Question title="Where you train">
             <ChoiceChips
               name="equipment"
               checked={[profile.training.equipment]}
-              options={[
-                { value: "full_gym", label: "A full gym" },
-                { value: "home", label: "Home — dumbbells, bands, a bar" },
-                { value: "bodyweight", label: "Bodyweight only" },
-              ]}
+              options={EQUIPMENT_OPTIONS}
             />
           </Question>
           <Question
@@ -163,47 +166,33 @@ export default async function SetupPage({
               name="protect"
               multiple
               checked={profile.protect}
-              options={BODY_AREAS.map((key) => ({ value: key, label: area(key) }))}
+              options={PROTECT_OPTIONS}
             />
           </Question>
         </section>
 
-        <section className="flex flex-col gap-5 border-t border-border pt-6">
+        <section id="food" className="flex scroll-mt-6 flex-col gap-5 border-t border-border pt-6">
           <h2 className="eyebrow">Food</h2>
           <Question title="Any rules?" hint="Meals that break one are never suggested.">
             <ChoiceChips
               name="diet"
               multiple
               checked={profile.food.diet}
-              options={[
-                { value: "dairy_free", label: "Dairy-free" },
-                { value: "vegetarian", label: "Vegetarian" },
-                { value: "vegan", label: "Vegan" },
-                { value: "pescatarian", label: "Pescatarian" },
-                { value: "gluten_free", label: "Gluten-free" },
-              ]}
+              options={DIET_OPTIONS}
             />
           </Question>
           <Question title="Cooking for">
             <ChoiceChips
               name="householdSize"
               checked={[String(profile.food.householdSize)]}
-              options={[1, 2, 3, 4, 5].map((n) => ({
-                value: String(n),
-                label: n === 1 ? "Just me" : n === 5 ? "5+" : String(n),
-              }))}
+              options={HOUSEHOLD_OPTIONS}
             />
           </Question>
           <Question title="The habit you'd most like to beat" hint="The coach aims its suggestions here.">
             <ChoiceChips
               name="habit"
               checked={[profile.food.habit]}
-              options={[
-                { value: "takeaway_lunches", label: "Takeaway lunches" },
-                { value: "skipping_meals", label: "Skipping meals" },
-                { value: "snacking", label: "Snacking" },
-                { value: "none", label: "Nothing in particular" },
-              ]}
+              options={HABIT_OPTIONS}
             />
           </Question>
         </section>

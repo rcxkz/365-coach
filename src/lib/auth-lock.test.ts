@@ -43,4 +43,10 @@ describe("a passcode chosen in the app", () => {
     expect(await isValidSession(oldCookie)).toBe(false);
     expect(await isValidSession(await lockTokenFor(secret, after))).toBe(true);
   });
+
+  it("never applies on the public demo, which stays open", async () => {
+    vi.stubEnv("DEMO_MODE", "1");
+    expect(await passcodeState()).toBe("unavailable");
+    expect(await isValidSession(undefined)).toBe(true);
+  });
 });

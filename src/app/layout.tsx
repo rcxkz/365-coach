@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { BottomNav } from "@/components/bottom-nav";
 import { DeviceAside } from "@/components/device-aside";
 import { FinishSetup } from "@/components/finish-setup";
+import { SettingsLink } from "@/components/settings-link";
 import { getProfile } from "@/data/repos/profile";
 import { isDemo, publicRepoUrl } from "@/lib/demo";
 import { configProblems, isMissingTables } from "@/lib/setup-status";
@@ -80,7 +81,10 @@ export default async function RootLayout({
                       </a>
                     </div>
                   )}
-                  {children}
+                  <div className="relative flex flex-1 flex-col">
+                    <SettingsLink />
+                    {children}
+                  </div>
                   <BottomNav modules={modules} />
                 </>
               ) : (

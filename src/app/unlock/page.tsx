@@ -1,6 +1,7 @@
 import { choosePasscode, unlock } from "./actions";
 import { Button } from "@/components/ui/button";
-import { passcodeState } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { authDisabled, passcodeState } from "@/lib/auth";
 import { MIN_PASSCODE_LENGTH } from "@/lib/passcode";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,9 @@ export default async function UnlockPage({
   searchParams: Promise<{ retry?: string; problem?: string; taken?: string }>;
 }) {
   const { retry, problem, taken } = await searchParams;
+  // Where the app is open anyway (the public demo, local dev), there's
+  // nothing to unlock.
+  if (authDisabled()) redirect("/");
   const state = await passcodeState();
 
   // A new copy: the first thing its owner does is lock it.

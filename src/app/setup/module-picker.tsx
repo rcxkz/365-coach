@@ -1,13 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChoiceChips, type ChoiceOption } from "@/components/choice-chips";
+import { ChoiceChips } from "@/components/choice-chips";
+import { MODULE_OPTIONS as OPTIONS } from "./options";
 
-const OPTIONS: ChoiceOption[] = [
-  { value: "train", label: "Training" },
-  { value: "fuel", label: "Food" },
-  { value: "journal", label: "How I feel" },
-];
 
 /**
  * Which parts of the app are on. At least one has to be: with none, the

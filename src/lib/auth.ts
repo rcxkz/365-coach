@@ -46,6 +46,8 @@ export function authConfig(): AuthConfig | null {
  */
 export function inAppPasscode(): boolean {
   if (process.env.APP_PASSCODE?.trim()) return false;
+  // The public demo is open to everyone: there's nothing to claim.
+  if (process.env.DEMO_MODE === "1") return false;
   const database = Boolean(process.env.DATABASE_URL?.trim()) || Boolean(process.env.VITEST);
   return database && signingSecret() !== null;
 }
