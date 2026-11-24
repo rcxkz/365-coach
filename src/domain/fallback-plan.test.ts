@@ -119,7 +119,7 @@ describe("composeFallbackSession", () => {
       },
     ];
     const [exercise] = composeFallbackSession(TEMPLATE, sections);
-    expect(exercise.note).toBe("Full hang. Mild wrist pain — keep loading gentle.");
+    expect(exercise.note).toBe("Full hang.\nMild wrist pain — keep loading gentle.");
   });
 
   it("picks the gentlest option for warm-up/restoration sections", () => {

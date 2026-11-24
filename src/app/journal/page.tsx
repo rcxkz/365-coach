@@ -111,9 +111,9 @@ function formatDay(iso: string, today: string): string {
 export default async function JournalPage({
   searchParams,
 }: {
-  searchParams: Promise<{ saved?: string; adapted?: string; empty?: string }>;
+  searchParams: Promise<{ saved?: string; adapted?: string; empty?: string; all?: string }>;
 }) {
-  const { saved, adapted, empty } = await searchParams;
+  const { saved, adapted, empty, all } = await searchParams;
   const today = todayInTimeZone();
   const from = addDaysISO(today, -(TIMELINE_DAYS - 1));
   const [entries, checkins, { profile }] = await Promise.all([
@@ -128,6 +128,8 @@ export default async function JournalPage({
   const days = [...new Set([...entries.map((e) => e.date), ...checkins.map((c) => c.date)])]
     .sort()
     .reverse();
+  // A week shows by default; the full fortnight is a tap away.
+  const shownDays = all ? days : days.slice(0, 7);
 
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-4 py-8">
@@ -241,14 +243,14 @@ export default async function JournalPage({
       </form>
 
       <section>
-        <h2 className="eyebrow mb-3">The last two weeks</h2>
+        <h2 className="eyebrow mb-3">{all ? "The last two weeks" : "The last week"}</h2>
         {days.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Nothing yet. The first entry is the start of the pattern.
           </p>
         ) : (
           <ol className="flex flex-col gap-5">
-            {days.map((day) => {
+            {shownDays.map((day) => {
               const checkin = checkins.find((c) => c.date === day);
               const dayEntries = entries.filter((e) => e.date === day);
               return (
@@ -256,9 +258,9 @@ export default async function JournalPage({
                   <p className="mb-1.5 text-sm font-medium">{formatDay(day, today)}</p>
                   <ul className="flex flex-col divide-y divide-border border-y border-border">
                     {dayEntries.map((entry) => (
-                      <li key={entry.id} className="flex items-center justify-between gap-3 py-2">
-                        <span className="text-sm">
-                          <span className="figure mr-2 text-xs text-muted-foreground">
+                      <li key={entry.id} className="flex items-start justify-between gap-3 py-2.5">
+                        <span className="text-sm leading-relaxed">
+                          <span className="figure block text-[0.6875rem] text-muted-foreground">
                             {formatTime(entry.createdAt)}
                           </span>
                           {describeEntry(entry, trackers)}
@@ -276,9 +278,9 @@ export default async function JournalPage({
                       </li>
                     ))}
                     {checkin && (
-                      <li className="py-2 text-sm">
-                        <span className="figure mr-2 text-xs text-muted-foreground">
-                          check-in
+                      <li className="py-2.5 text-sm leading-relaxed">
+                        <span className="figure block text-[0.6875rem] text-muted-foreground">
+                          Morning check-in
                         </span>
                         {describeCheckin(checkin)}
                       </li>
@@ -288,6 +290,14 @@ export default async function JournalPage({
               );
             })}
           </ol>
+        )}
+        {!all && days.length > shownDays.length && (
+          <Link
+            href="/journal?all=1"
+            className="mt-5 block text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
+          >
+            Show the week before
+          </Link>
         )}
       </section>
     </main>

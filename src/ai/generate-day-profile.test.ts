@@ -1,6 +1,8 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { generateDay } from "./generate-day";
 import { generateFuelDay } from "./generate-fuel";
+import { generateWeekPlan } from "./generate-week-plan";
+import { buildShoppingList, listShoppingList, weekPlanMealDefinitions } from "@/data/repos/week-plan";
 import { EXERCISE_LIBRARY } from "@/data/library";
 import { MEAL_LIBRARY } from "@/data/library/meals";
 import { upsertExercises } from "@/data/repos/exercises";
@@ -45,6 +47,31 @@ describe("generateDay — the user's setup", () => {
       const meal = MEAL_LIBRARY.find((m) => m.id === day.dinnerMealId);
       if (meal) expect(mealFitsDiet(meal, ["vegetarian"]), meal.name).toBe(true);
     }
+  });
+});
+
+describe("Anything else to leave out (Phase 18)", () => {
+  beforeAll(async () => {
+    delete process.env.ANTHROPIC_API_KEY;
+    await upsertMeals(MEAL_LIBRARY);
+  });
+
+  it("keeps what's written there out of the week and off the list", async () => {
+    await saveProfile({ food: { avoid: "I can't have oats, and no tomatoes" } });
+    const week = "2031-09-01";
+    await generateWeekPlan(week, { breakfasts: 3, lunches: 2, dinners: 5 });
+    const meals = await weekPlanMealDefinitions(week);
+    expect(meals.some((meal) => meal.slots.includes("breakfast"))).toBe(true);
+    const banned = ["oats", "oat_milk", "tomatoes", "tinned_tomatoes"];
+    for (const meal of meals) {
+      expect(meal.coreIngredients.filter((i) => banned.includes(i)), meal.name).toEqual([]);
+      expect((meal.flexIngredients ?? []).filter((i) => banned.includes(i)), meal.name).toEqual([]);
+    }
+    await buildShoppingList(week);
+    const list = (await listShoppingList(week)).map((item) => item.ingredient);
+    expect(list.length).toBeGreaterThan(0);
+    expect(list.filter((i) => banned.includes(i))).toEqual([]);
+    await saveProfile({ food: { avoid: "" } });
   });
 });
 

@@ -4,6 +4,7 @@ import {
   customAisles,
   isKnownIngredient,
   listAllMeals,
+  trimAvoided,
   listPantry,
 } from "./fuel";
 import { getDb } from "../db";
@@ -251,9 +252,11 @@ export async function weekPlanMealDefinitions(
   const [rows, allMeals] = await Promise.all([listWeekPlan(weekStart), listAllMeals()]);
   const byId = new Map(allMeals.map((meal) => [meal.id, meal]));
   // A meal made in two batches has two rows; the shop needs it once.
-  return [...new Set(rows.map((row) => row.mealId))]
-    .map((id) => byId.get(id))
-    .filter((meal): meal is MealDefinition => Boolean(meal));
+  return trimAvoided(
+    [...new Set(rows.map((row) => row.mealId))]
+      .map((id) => byId.get(id))
+      .filter((meal): meal is MealDefinition => Boolean(meal)),
+  );
 }
 
 /**

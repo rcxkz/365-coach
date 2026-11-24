@@ -30,6 +30,7 @@ export async function saveSetup(formData: FormData): Promise<void> {
     protect: formData.getAll("protect"),
     food: {
       diet: formData.getAll("diet"),
+      avoid: formData.get("avoid"),
       householdSize: formData.get("householdSize"),
       habit: formData.get("habit"),
     },

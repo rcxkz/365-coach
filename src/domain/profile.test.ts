@@ -23,7 +23,7 @@ describe("normaliseProfile", () => {
       modules: { train: true, fuel: false, journal: true },
       training: { ...DEFAULT_PROFILE.training, daysPerWeek: 7 },
       protect: ["wrist"],
-      food: { diet: ["vegan"], householdSize: 1, habit: "none" },
+      food: { diet: ["vegan"], avoid: "", householdSize: 1, habit: "none" },
     });
   });
 

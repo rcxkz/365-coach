@@ -86,7 +86,7 @@ describe("summariseTrackers", () => {
     );
     expect(lines).toEqual([
       "Headache: averaged 3.0 out of 5 across 2 entries.",
-      "Steps: averaged 7000 steps across 2 entries.",
+      "Steps: averaged 7,000 steps across 2 entries.",
       "Took meds: yes on 2 of 3 logged days.",
     ]);
   });

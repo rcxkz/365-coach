@@ -1,6 +1,7 @@
 import type { Equipment, ExerciseDefinition } from "./exercises";
 import type { PainSignal, ReadinessLevel } from "./readiness";
 import type { SessionTemplate, TemplateSection } from "./templates";
+import { formatList } from "./meals";
 
 /**
  * Deterministic candidate filtering (Phase 2 design §3, decision D11):
@@ -118,16 +119,18 @@ export function filterCandidates(
     }
     if (excluded) continue;
 
-    for (const area of context.protectAreas ?? []) {
+    // One line for every area the setup protects, not one each: two
+    // near-identical sentences under a stretch read as a wall of text.
+    const protect = (context.protectAreas ?? []).filter((area) => {
       const loads =
         exercise.avoidAreas?.includes(area as (typeof exercise.avoidAreas)[number]) ||
         exercise.cautionAreas?.includes(area as (typeof exercise.cautionAreas)[number]);
-      const alreadyFlagged = context.painFlags.some((flag) => flag.location === area);
-      if (loads && !alreadyFlagged) {
-        cautions.push(
-          `Protect the ${formatArea(area)} (from their setup) — controlled range, no grinding reps.`,
-        );
-      }
+      return loads && !context.painFlags.some((flag) => flag.location === area);
+    });
+    if (protect.length > 0) {
+      cautions.push(
+        `Go gently on your ${formatList(protect.map(formatArea))}: controlled range, no grinding reps.`,
+      );
     }
 
     candidates.push({ exercise, cautions });

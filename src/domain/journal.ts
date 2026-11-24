@@ -172,7 +172,7 @@ export function summariseTrackers(entries: JournalEntry[], trackers: CustomTrack
     const numbers = values.map((item) => Number(item.value)).filter(Number.isFinite);
     if (numbers.length === 0) continue;
     const avg = numbers.reduce((a, b) => a + b, 0) / numbers.length;
-    const shown = tracker.kind === "scale" ? `${avg.toFixed(1)} out of 5` : `${Math.round(avg * 10) / 10}${tracker.unit ? ` ${tracker.unit}` : ""}`;
+    const shown = tracker.kind === "scale" ? `${avg.toFixed(1)} out of 5` : `${(avg >= 100 ? Math.round(avg) : Math.round(avg * 10) / 10).toLocaleString("en-GB")}${tracker.unit ? ` ${tracker.unit}` : ""}`;
     lines.push(`${tracker.label}: averaged ${shown} across ${numbers.length} ${numbers.length === 1 ? "entry" : "entries"}.`);
   }
   return lines;

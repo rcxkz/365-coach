@@ -15,6 +15,9 @@ import {
 import { ChoiceChips } from "@/components/choice-chips";
 import { Button } from "@/components/ui/button";
 import { getProfile } from "@/data/repos/profile";
+import { avoidedIngredientKeys } from "@/data/repos/fuel";
+import { MAX_AVOID_LENGTH } from "@/domain/avoid";
+import { formatIngredient, formatList } from "@/domain/meals";
 import { DEFAULT_PROFILE } from "@/domain/profile";
 import { PLAN_STYLES, PLANS } from "@/domain/templates";
 
@@ -51,6 +54,8 @@ export default async function SetupPage({
   const startAgain = Boolean(fresh);
   const profile = startAgain ? DEFAULT_PROFILE : saved.profile;
   const isSetUp = saved.isSetUp && !startAgain;
+  // Said back, so it's clear what the rules caught and what's left to the coach.
+  const leftOut = profile.food.avoid ? await avoidedIngredientKeys(profile.food.avoid) : [];
   // A first setup starts with nothing chosen: you tap what you want,
   // rather than untapping what you don't (which read the wrong way round).
   const modules = isSetUp
@@ -180,6 +185,26 @@ export default async function SetupPage({
               checked={profile.food.diet}
               options={DIET_OPTIONS}
             />
+          </Question>
+          <Question
+            title="Anything else to leave out?"
+            hint="In your own words, e.g. no oats, no tomatoes, nothing too spicy. Meals that need them are never suggested."
+          >
+            <textarea
+              name="avoid"
+              defaultValue={profile.food.avoid}
+              maxLength={MAX_AVOID_LENGTH}
+              rows={2}
+              placeholder="Optional"
+              className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+            />
+            {profile.food.avoid && (
+              <p className="text-xs text-muted-foreground">
+                {leftOut.length > 0
+                  ? `Right now that leaves out ${formatList(leftOut.map(formatIngredient))}. The coach reads the rest too.`
+                  : "None of that names an ingredient the app knows, so the coach keeps it in mind when it suggests meals."}
+              </p>
+            )}
           </Question>
           <Question title="Cooking for">
             <ChoiceChips

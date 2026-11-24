@@ -1,4 +1,5 @@
 import { BODY_AREAS, type BodyArea, type Equipment } from "./exercises";
+import { normaliseAvoid } from "./avoid";
 import type { MealDefinition } from "./meals";
 import { PLAN_STYLES, type PlanStyle } from "./templates";
 
@@ -67,6 +68,8 @@ export interface Profile {
   protect: BodyArea[];
   food: {
     diet: DietRule[];
+    /** "Anything else to leave out?", in their words (Phase 18). */
+    avoid: string;
     householdSize: number;
     habit: FoodHabit;
   };
@@ -90,7 +93,7 @@ export const DEFAULT_PROFILE: Profile = {
     equipment: "full_gym",
   },
   protect: [],
-  food: { diet: [], householdSize: 1, habit: "none" },
+  food: { diet: [], avoid: "", householdSize: 1, habit: "none" },
   journal: { hidden: [], custom: [] },
 };
 
@@ -150,6 +153,7 @@ export function normaliseProfile(input: unknown): Profile {
           ),
         ),
       ],
+      avoid: normaliseAvoid(food.avoid),
       householdSize: clampInt(food.householdSize, 1, 8, d.food.householdSize),
       habit: pick(food.habit, FOOD_HABITS, d.food.habit),
     },

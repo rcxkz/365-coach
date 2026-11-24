@@ -20,7 +20,7 @@ export function ExerciseGuide({
 }) {
   const photos = exercisePhotos(libraryExerciseId);
   // The plan's note is often the library cue itself; don't say it twice.
-  const showCues = cues && cues !== note;
+  const showCues = cues && !note?.startsWith(cues);
 
   return (
     <details className="group">

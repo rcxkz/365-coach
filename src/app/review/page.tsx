@@ -44,6 +44,12 @@ const CALL_META: Record<
   },
 };
 
+const GROUP_REASON: Record<ProgressionCall, string | null> = {
+  progress: "Every set hit the target, so each is ready for a small step up.",
+  hold: "Some sets came up short, so repeat before adding anything.",
+  ease: null,
+};
+
 function formatRange(start: string, end: string): string {
   const fmt = (iso: string) =>
     new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" }).format(
@@ -134,32 +140,40 @@ export default async function ReviewPage({
               <h2 className="eyebrow mb-3">
                 Next week
               </h2>
-              <ul className="flex flex-col gap-2">
-                {review.summary.progressions.map((progression) => {
-                  const meta = CALL_META[progression.call];
+              {/* Grouped by the call, with the usual reason said once: a
+                  reason under every movement read as a wall of text. */}
+              <div className="flex flex-col gap-5">
+                {(["ease", "progress", "hold"] as const).map((call) => {
+                  const group = review.summary.progressions.filter((p) => p.call === call);
+                  if (group.length === 0) return null;
+                  const meta = CALL_META[call];
                   const Icon = meta.icon;
+                  // Step-ups and repeats share one reason, near enough; an
+                  // ease-off is rarer and specific, so it keeps its own.
+                  const usual = GROUP_REASON[call];
                   return (
-                    <li
-                      key={progression.libraryExerciseId}
-                      className="flex gap-2.5"
-                    >
-                      <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${meta.className}`} />
-                      <div>
-                        <p className="text-sm">
-                          <span className="font-medium">{progression.name}</span>
-                          <span className="text-muted-foreground">
-                            {" · "}
-                            {meta.label}
-                          </span>
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {progression.reason}
-                        </p>
-                      </div>
-                    </li>
+                    <div key={call}>
+                      <p className={`flex items-center gap-2 text-sm font-medium ${meta.className}`}>
+                        <Icon className="h-4 w-4 shrink-0" />
+                        {meta.label} · {group.length}
+                      </p>
+                      {usual && <p className="mt-0.5 pl-6 text-xs text-muted-foreground">{usual}</p>}
+                      <ul className="mt-2 flex flex-col gap-1.5 pl-6">
+                        {group.map((progression) => (
+                          <li key={progression.libraryExerciseId} className="text-sm">
+                            {progression.name}
+                            {!usual && (
+                              <span className="block text-xs text-muted-foreground">
+                                {progression.reason}
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   );
                 })}
-              </ul>
+              </div>
             </section>
           )}
 

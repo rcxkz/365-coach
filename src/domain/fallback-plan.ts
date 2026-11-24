@@ -131,7 +131,8 @@ export function composeFallbackSession(
       const pick = pickCandidate(candidates, usedIds, gentle, preferredCategories);
       if (!pick) break;
       usedIds.add(pick.exercise.id);
-      const note = [pick.exercise.cues, ...pick.cautions].join(" ") || null;
+      // Cautions on their own line, so the card can set them apart from the cue.
+      const note = [pick.exercise.cues, ...pick.cautions].filter(Boolean).join("\n") || null;
       exercises.push({
         libraryExerciseId: pick.exercise.id,
         name: pick.exercise.name,

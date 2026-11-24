@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, ChevronRight, Plus } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { MEAL_LIBRARY } from "@/data/library/meals";
 import { listMealUserState, listUserMeals } from "@/data/repos/fuel";
@@ -81,25 +81,43 @@ export default async function MealsPage({
         <p className="mb-3 text-xs text-muted-foreground">
           Copy one to make it your own version.
         </p>
-        <ul className="flex flex-col divide-y divide-border border-y border-border">
-          {MEAL_LIBRARY.map((meal) => (
-            <li key={meal.id} className="flex items-center justify-between gap-3 py-2.5">
-              <span className="min-w-0">
-                <span className="block truncate text-sm">{meal.name}</span>
-                <span className="figure text-xs text-muted-foreground">
-                  {meal.activeMinutes} min hands-on
-                  {notAgain.has(meal.id) ? " · not again" : ""}
-                </span>
+        {/* In groups, so forty meals read as a menu rather than a list. */}
+        {[
+          { title: "Breakfasts", meals: MEAL_LIBRARY.filter((m) => m.slots.includes("breakfast")) },
+          {
+            title: "Lunches and dinners",
+            meals: MEAL_LIBRARY.filter((m) => !m.slots.includes("breakfast")),
+          },
+        ].map(({ title, meals }) => (
+          <details key={title} className="group mt-4 first-of-type:mt-0" open={title !== "Breakfasts"}>
+            <summary className="flex cursor-pointer list-none items-center justify-between py-2 text-sm font-medium [&::-webkit-details-marker]:hidden">
+              {title}
+              <span className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
+                {meals.length}
+                <ChevronDown aria-hidden className="h-4 w-4 transition-transform group-open:rotate-180" />
               </span>
-              <Link
-                href={`/fuel/meals/new?from=${meal.id}`}
-                className="shrink-0 text-xs text-muted-foreground underline-offset-4 hover:underline"
-              >
-                Copy &amp; tweak
-              </Link>
-            </li>
-          ))}
-        </ul>
+            </summary>
+            <ul className="flex flex-col divide-y divide-border border-y border-border">
+              {meals.map((meal) => (
+                <li key={meal.id} className="flex items-center justify-between gap-3 py-3">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm">{meal.name}</span>
+                    <span className="figure text-xs text-muted-foreground">
+                      {meal.activeMinutes} min hands-on
+                      {notAgain.has(meal.id) ? " · not again" : ""}
+                    </span>
+                  </span>
+                  <Link
+                    href={`/fuel/meals/new?from=${meal.id}`}
+                    className="shrink-0 text-xs text-muted-foreground underline-offset-4 hover:underline"
+                  >
+                    Copy &amp; tweak
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </details>
+        ))}
       </section>
     </main>
   );

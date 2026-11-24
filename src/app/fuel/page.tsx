@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Check, ChevronRight, Clock, Sparkles, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, ChevronRight, Clock, Sparkles, X } from "lucide-react";
 import { markCooked, suggestDinner, toggleLunchSorted } from "./actions";
 import { Badge } from "@/components/ui/badge";
 import { PendingButton } from "@/components/pending-button";
@@ -49,7 +49,7 @@ function MealCard({
         </p>
         {reason && <p className="mt-2 text-sm">{reason}</p>}
 
-        <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="mt-3 flex flex-wrap gap-1.5">
           {meal.batchFriendly && <Badge variant="secondary">Batches for lunch</Badge>}
           {meal.freezerFriendly && <Badge variant="secondary">Freezes</Badge>}
           <Badge variant="secondary">{meal.totalMinutes} min total</Badge>
@@ -57,12 +57,25 @@ function MealCard({
 
         {primary && (
           <>
-            <ol className="mt-3 flex list-decimal flex-col gap-1 pl-4 text-sm text-muted-foreground">
-              {meal.steps.map((step) => (
-                <li key={step}>{step}</li>
-              ))}
-            </ol>
-            <div className="mt-4">
+            {/* Folded away: the card is read while hungry, and a
+                made-ahead dinner doesn't need the method at all. */}
+            {meal.steps.length > 0 && (
+              <details className="group mt-3 border-t border-border pt-3">
+                <summary className="flex cursor-pointer list-none items-center justify-between text-sm [&::-webkit-details-marker]:hidden">
+                  How to make it
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span className="group-open:hidden">{meal.steps.length} steps</span>
+                    <ChevronDown aria-hidden className="h-4 w-4 transition-transform group-open:rotate-180" />
+                  </span>
+                </summary>
+                <ol className="mt-2 flex list-decimal flex-col gap-1.5 pl-4 text-sm text-muted-foreground">
+                  {meal.steps.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ol>
+              </details>
+            )}
+            <div className="mt-4 border-t border-border pt-4">
               <p className="mb-2 text-xs text-muted-foreground">
                 Cooked it? One tap teaches it what to suggest next.
               </p>

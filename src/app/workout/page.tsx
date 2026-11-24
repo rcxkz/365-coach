@@ -204,11 +204,20 @@ export default async function WorkoutPage({
                   {exercise.targetSets} × {exercise.targetReps}
                   {exercise.targetWeightKg ? ` · ${exercise.targetWeightKg}kg` : ""}
                 </p>
-                {exercise.note && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {exercise.note}
-                  </p>
-                )}
+                {exercise.note &&
+                  exercise.note.split("\n").map((line, index) =>
+                    index === 0 ? (
+                      <p key={index} className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                        {line}
+                      </p>
+                    ) : (
+                      // Cautions sit apart from the cue, marked, so they're seen.
+                      <p key={index} className="mt-1.5 flex gap-2 text-xs leading-relaxed">
+                        <span aria-hidden className="mt-[0.4rem] h-1.5 w-1.5 shrink-0 rounded-full bg-highlight" />
+                        {line}
+                      </p>
+                    ),
+                  )}
                 <SetLogger
                   exerciseId={exercise.id}
                   targetSets={exercise.targetSets}

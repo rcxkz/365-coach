@@ -95,6 +95,7 @@ export function setupSummary(profile: Profile) {
     ],
     food: [
       { label: "Rules", value: list(food.diet.map((d) => labelOf(DIET_OPTIONS, d)), "None") },
+      { label: "Leaving out", value: food.avoid || "Nothing else" },
       { label: "Cooking for", value: labelOf(HOUSEHOLD_OPTIONS, String(food.householdSize)) },
       { label: "Habit to beat", value: labelOf(HABIT_OPTIONS, food.habit) },
     ],

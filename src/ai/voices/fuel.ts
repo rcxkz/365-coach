@@ -30,6 +30,9 @@ export function fuelVoice(profile: Profile): string {
     food.diet.length > 0
       ? `- Dietary rules: ${food.diet.map((rule) => DIET_LABELS[rule]).join(", ")}. Everything you suggest respects them — no exceptions, no "just this once".`
       : null,
+    food.avoid
+      ? `- They've asked to leave out: "${food.avoid}". Treat it as firmly as a dietary rule: never suggest a meal that needs any of it, and leave it out of nice-to-haves and swaps.`
+      : null,
     food.householdSize > 1
       ? `- Cooks for ${food.householdSize}. A meal everyone will enjoy is worth more than a clever one.`
       : "- Cooks for themselves; portions and leftovers should suit one.",

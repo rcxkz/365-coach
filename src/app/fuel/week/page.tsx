@@ -443,12 +443,12 @@ export default async function WeekPage({
                   const makeAhead = plan.filter((row) => row.makeOn === day && row.makeOn !== prepOn);
                   if (eaten.length === 0 && makeAhead.length === 0 && day !== prepOn) return null;
                   return (
-                    <li key={day} className={`py-3 ${day === today ? "" : ""}`}>
+                    <li key={day} className="py-4">
                       <p className="font-mono text-[0.6875rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">
                         {dayLabel(day)}
                         {day === today && <span className="text-highlight"> · today</span>}
                       </p>
-                      <ul className="mt-1 flex flex-col gap-1 text-sm">
+                      <ul className="mt-2 flex flex-col gap-2 text-sm leading-snug">
                         {eaten.map((row) => {
                           const meal = mealsById.get(row.mealId);
                           if (!meal) return null;
@@ -475,9 +475,12 @@ export default async function WeekPage({
                         {makeAhead.map((row) => {
                           const meal = mealsById.get(row.mealId);
                           return meal ? (
-                            <li key={`make-${row.id}`} className="text-muted-foreground">
-                              Tonight, also make {meal.name.toLowerCase()} for {SLOT_PLURAL[row.slot] ?? row.slot}{" "}
-                              {daySpan(row.eatDays ?? [])}.
+                            <li key={`make-${row.id}`} className="flex gap-2 text-xs text-muted-foreground">
+                              <span aria-hidden className="text-highlight">+</span>
+                              <span>
+                                Tonight, also make {meal.name.toLowerCase()} for {SLOT_PLURAL[row.slot] ?? row.slot}{" "}
+                                {daySpan(row.eatDays ?? [])}.
+                              </span>
                             </li>
                           ) : null;
                         })}
@@ -503,8 +506,8 @@ export default async function WeekPage({
               ["Dinners", dinnerRows],
             ].map(([title, rows]) =>
               (rows as WeekPlanMealRow[]).length > 0 ? (
-                <div key={title as string} className="mb-4">
-                  <p className="text-sm font-medium">{title as string}</p>
+                <div key={title as string} className="mt-5">
+                  <p className="mb-1 text-sm font-medium">{title as string}</p>
                   <ul className="flex flex-col divide-y divide-border border-y border-border">
                     {(rows as WeekPlanMealRow[]).map((row) => {
                       const meal = mealsById.get(row.mealId);
@@ -577,18 +580,14 @@ export default async function WeekPage({
         </form>
 
         {listMade && derived.optional.length > 0 && (
-          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
             <span className="text-foreground">Nice to have: </span>
             {derived.optional.map((line) => formatIngredient(line.ingredient)).join(", ")}
             . None of these stop a meal happening.
           </p>
         )}
-      </section>
-      )}
-
-      <div className="flex flex-col gap-3">
         {bought.length > 0 && (
-          <form action={stockUp}>
+          <form action={stockUp} className="mt-6">
             <input type="hidden" name="week" value={which} />
             <Button className="w-full" type="submit">
               <Check className="h-4 w-4" />
@@ -596,8 +595,18 @@ export default async function WeekPage({
             </Button>
           </form>
         )}
-        {plan.length > 0 && <PlanForm {...formDefaults} label="Plan the week again" primary={false} />}
-      </div>
+      </section>
+      )}
+
+      {plan.length > 0 && (
+        <section className="border-t border-border pt-6">
+          <h2 className="eyebrow mb-1">Change the plan</h2>
+          <p className="mb-4 text-xs text-muted-foreground">
+            A different mix or prep day. Anything already cooked stays.
+          </p>
+          <PlanForm {...formDefaults} label="Plan the week again" primary={false} />
+        </section>
+      )}
     </main>
   );
 }

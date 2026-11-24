@@ -17,6 +17,8 @@ import {
 } from "../../domain/meals";
 import { MEAL_LIBRARY } from "../library/meals";
 import { mealFitsDiet } from "../../domain/profile";
+import { avoidedIngredients, mealAvoids, withoutAvoided } from "../../domain/avoid";
+import { INGREDIENTS } from "../../domain/meals";
 import { getProfile } from "./profile";
 import type { MealUserState, PantryItem } from "../../domain/meal-candidates";
 
@@ -122,7 +124,37 @@ export async function listAllMeals(): Promise<MealDefinition[]> {
  */
 export async function listMealsForDiet(): Promise<MealDefinition[]> {
   const [all, { profile }] = await Promise.all([listAllMeals(), getProfile()]);
-  return all.filter((meal) => mealFitsDiet(meal, profile.food.diet));
+  const avoided = avoidedFrom(profile.food.avoid, all);
+  return all
+    .filter((meal) => mealFitsDiet(meal, profile.food.diet) && mealAvoids(meal, avoided))
+    .map((meal) => withoutAvoided(meal, avoided));
+}
+
+/** Every ingredient key the app knows: the vocabulary plus any in the meals. */
+function knownIngredients(meals: MealDefinition[]): string[] {
+  const keys = new Set<string>(INGREDIENTS);
+  for (const meal of meals) {
+    for (const key of [...meal.coreIngredients, ...(meal.flexIngredients ?? [])]) keys.add(key);
+  }
+  return [...keys];
+}
+
+const avoidedFrom = (note: string, meals: MealDefinition[]) =>
+  note ? avoidedIngredients(note, knownIngredients(meals)) : [];
+
+/**
+ * What "Anything else to leave out?" rules out right now, so the setup
+ * screen can say it back ("That leaves out oats and oat milk").
+ */
+export async function avoidedIngredientKeys(note?: string): Promise<string[]> {
+  const [all, { profile }] = await Promise.all([listAllMeals(), getProfile()]);
+  return avoidedFrom(note ?? profile.food.avoid, all);
+}
+
+/** Meals as the shop should see them: nice-to-haves that are ruled out, dropped. */
+export async function trimAvoided(meals: MealDefinition[]): Promise<MealDefinition[]> {
+  const avoided = await avoidedIngredientKeys();
+  return meals.map((meal) => withoutAvoided(meal, avoided));
 }
 
 /** A meal by id, library or the user's — archived ones included, for history. */

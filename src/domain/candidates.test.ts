@@ -168,7 +168,7 @@ describe("filterCandidates — protected areas", () => {
     const pool = [exercise({ id: "loads_wrist", cautionAreas: ["wrist"] }), exercise({ id: "fine" })];
     const result = filterCandidates(pool, SECTION, { ...CALM, protectAreas: ["wrist"] });
     expect(result.map((c) => c.exercise.id)).toEqual(["loads_wrist", "fine"]);
-    expect(result[0].cautions.join(" ")).toMatch(/Protect the wrist/);
+    expect(result[0].cautions.join(" ")).toMatch(/Go gently on your wrist/);
     expect(result[1].cautions).toEqual([]);
   });
 });
