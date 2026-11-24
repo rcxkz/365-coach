@@ -4,6 +4,7 @@ import { generateWeekPlan } from "./generate-week-plan";
 import { MEAL_LIBRARY } from "@/data/library/meals";
 import { addPantryItem, upsertMeals } from "@/data/repos/fuel";
 import {
+  buildShoppingList,
   listShoppingList,
   listWeekPlan,
   markWeekMealCooked,
@@ -26,7 +27,7 @@ describe("generateWeekPlan without AI", () => {
   });
 
   it("plans a full week from the rules and says so", async () => {
-    const result = await generateWeekPlan("2026-08-03", { lunches: 0 });
+    const result = await generateWeekPlan("2026-08-03", { lunches: 0, breakfasts: 0 });
     expect(result.mode).toBe("rules");
     expect(result.meals).toHaveLength(WEEK_POOL_SIZE);
     expect(await listWeekPlan("2026-08-03")).toHaveLength(WEEK_POOL_SIZE);
@@ -40,6 +41,7 @@ describe("generateWeekPlan without AI", () => {
   });
 
   it("leaves a shopping list that covers the week", async () => {
+    await buildShoppingList("2026-08-03");
     const list = await listShoppingList("2026-08-03");
     expect(list.length).toBeGreaterThan(0);
     expect(list.every((item) => item.status === "needed")).toBe(true);
@@ -53,18 +55,20 @@ describe("generateWeekPlan without AI", () => {
   it("does not ask for what's already in the house", async () => {
     await addPantryItem({ ingredient: "rice" });
     await addPantryItem({ ingredient: "eggs" });
-    await generateWeekPlan("2026-08-10", { lunches: 0 });
+    await generateWeekPlan("2026-08-10", { lunches: 0, breakfasts: 0 });
+    await buildShoppingList("2026-08-10");
 
     const list = (await listShoppingList("2026-08-10")).map(
       (item) => item.ingredient,
     );
+    expect(list.length).toBeGreaterThan(0);
     expect(list).not.toContain("rice");
     expect(list).not.toContain("eggs");
   });
 
   it("tonight's dinner comes from the week that was shopped for", async () => {
     const week = "2026-08-17";
-    await generateWeekPlan(week, { lunches: 0 });
+    await generateWeekPlan(week, { lunches: 0, breakfasts: 0 });
     const pool = (await listWeekPlan(week)).map((row) => row.mealId);
 
     // Everything the week needs is in, so nothing is gated out.
@@ -80,11 +84,11 @@ describe("generateWeekPlan without AI", () => {
 
   it("re-planning keeps what has already been cooked", async () => {
     const week = "2026-08-24";
-    await generateWeekPlan(week, { lunches: 0 });
+    await generateWeekPlan(week, { lunches: 0, breakfasts: 0 });
     const [first] = await listWeekPlan(week);
     await markWeekMealCooked(week, first.mealId, "2026-08-25");
 
-    await generateWeekPlan(week, { lunches: 0 });
+    await generateWeekPlan(week, { lunches: 0, breakfasts: 0 });
     const after = await listWeekPlan(week);
 
     expect(after).toHaveLength(WEEK_POOL_SIZE);
@@ -97,7 +101,7 @@ describe("generateWeekPlan without AI", () => {
 
   it("keeps cooked meals even when the new shape has no room for them", async () => {
     const week = "2026-08-31";
-    await generateWeekPlan(week, { dinners: 5, lunches: 1 });
+    await generateWeekPlan(week, { dinners: 5, lunches: 1, breakfasts: 0 });
     const rows = await listWeekPlan(week);
     const dinners = rows.filter((row) => row.slot === "dinner").slice(0, 4);
     const lunch = rows.find((row) => row.slot === "lunch")!;
@@ -106,7 +110,7 @@ describe("generateWeekPlan without AI", () => {
     }
 
     // Fewer dinners than already cooked, and no lunch preps at all.
-    await generateWeekPlan(week, { dinners: 3, lunches: 0 });
+    await generateWeekPlan(week, { dinners: 3, lunches: 0, breakfasts: 0 });
     const after = await listWeekPlan(week);
     for (const row of [...dinners, lunch]) {
       expect(after.find((kept) => kept.mealId === row.mealId)?.cookedOn).toBe("2026-09-01");
@@ -125,7 +129,8 @@ describe("generateWeekPlan without AI", () => {
     const first = before[0];
     await setShoppingStatus(first.id, "bought");
 
-    await generateWeekPlan("2026-08-10", { lunches: 0 });
+    await generateWeekPlan("2026-08-10", { lunches: 0, breakfasts: 0 });
+    await buildShoppingList("2026-08-10");
     const after = await listShoppingList("2026-08-10");
     expect(after.find((item) => item.id === first.id)?.status).toBe("bought");
   });
@@ -138,7 +143,7 @@ describe("generateWeekPlan — dinners and lunch preps (Phase 13)", () => {
   });
 
   it("plans the asked-for mix, keeps lunch preps out of tonight's pool", async () => {
-    const result = await generateWeekPlan("2026-09-07", { dinners: 4, lunches: 2 });
+    const result = await generateWeekPlan("2026-09-07", { dinners: 4, lunches: 2, breakfasts: 0 });
     const dinners = result.meals.filter((row) => row.slot === "dinner");
     const lunches = result.meals.filter((row) => row.slot === "lunch");
     expect(dinners).toHaveLength(4);

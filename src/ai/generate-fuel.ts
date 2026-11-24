@@ -10,7 +10,7 @@ import {
   saveFuelDay,
   type FuelDay,
 } from "@/data/repos/fuel";
-import { uncookedWeekMeals } from "@/data/repos/week-plan";
+import { mealsEatenOn, uncookedWeekMeals } from "@/data/repos/week-plan";
 import { getWorkoutByDate } from "@/data/repos/workouts";
 import { listJournalEntries, toJournalEntry } from "@/data/repos/journal";
 import { addDaysISO, startOfWeekISO } from "@/domain/dates";
@@ -97,6 +97,23 @@ function buildPrompt(input: {
 }
 
 export async function generateFuelDay(date: string): Promise<FuelResult> {
+  // A week planned day by day (Phase 17) already says what tonight is:
+  // that's what was shopped and prepped for.
+  const plannedTonight = (await mealsEatenOn(date)).find((row) => row.slot === "dinner");
+  if (plannedTonight) {
+    const day = await saveFuelDay({
+      date,
+      dinnerMealId: plannedTonight.mealId,
+      dinnerReason: plannedTonight.makeOn
+        ? "Made ahead for tonight: it just needs warming through."
+        : "Tonight's dinner in your week plan; the shop covered it.",
+      alternativeMealId: null,
+      alternativeReason: null,
+      mode: "rules",
+    });
+    return { day, mode: "rules" };
+  }
+
   const [pantry, userState, workout, weekPool, journal, allMeals] = await Promise.all([
     pantryForPlanning(),
     listMealUserState(),

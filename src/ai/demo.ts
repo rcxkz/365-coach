@@ -6,7 +6,7 @@ import { addCustomIngredient, recordMealFeedback, saveUserMeal, setPantry } from
 import { addJournalEntry } from "@/data/repos/journal";
 import { addMemory } from "@/data/repos/memories";
 import { getProfile, saveProfile } from "@/data/repos/profile";
-import { listShoppingList, markWeekMealCooked, setShoppingStatus } from "@/data/repos/week-plan";
+import { buildShoppingList, listShoppingList, markWeekMealCooked, setShoppingStatus } from "@/data/repos/week-plan";
 import { createWorkout, logSets } from "@/data/repos/workouts";
 import { resetAllData } from "@/data/reset";
 import { syncLibraries } from "@/data/sync";
@@ -176,7 +176,15 @@ export async function buildDemo(today: string = todayInTimeZone()): Promise<void
 
   // This week's food: planned, part cooked, part shopped.
   const weekStart = startOfWeekISO(today);
-  const week = await generateWeekPlan(weekStart, { dinners: 4, lunches: 1 });
+  // Prepped on the Sunday before, with breakfasts; the list is built,
+  // as if Alex tapped "Make my list" before shopping.
+  const week = await generateWeekPlan(weekStart, {
+    dinners: 4,
+    lunches: 1,
+    breakfasts: 2,
+    prepOn: addDaysISO(weekStart, -1),
+  });
+  await buildShoppingList(weekStart);
   const firstDinner = week.meals.find((row) => row.slot === "dinner");
   if (firstDinner && today > weekStart) {
     await markWeekMealCooked(weekStart, firstDinner.mealId, weekStart);

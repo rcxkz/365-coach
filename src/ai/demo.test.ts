@@ -3,7 +3,7 @@ import { buildDemo } from "./demo";
 import { listJournalEntries } from "@/data/repos/journal";
 import { getProfile } from "@/data/repos/profile";
 import { getWeeklyReview } from "@/data/repos/reviews";
-import { listWeekPlan } from "@/data/repos/week-plan";
+import { getWeekMeta, listShoppingList, listWeekPlan } from "@/data/repos/week-plan";
 import { listTrainedDates } from "@/data/repos/workouts";
 import { getDayActions } from "@/data/repos/today";
 import { addDaysISO, startOfWeekISO } from "@/domain/dates";
@@ -30,7 +30,13 @@ describe("buildDemo", () => {
     expect(trained.filter((d) => d >= lastWeek && d < startOfWeekISO(today)).length).toBeLessThanOrEqual(4);
 
     expect((await listJournalEntries(addDaysISO(today, -13), today)).length).toBe(13);
-    expect((await listWeekPlan(startOfWeekISO(today))).length).toBe(5);
+    // This week: prepped on the Sunday before, breakfasts in, list built.
+    const week = await listWeekPlan(startOfWeekISO(today));
+    expect(week.filter((row) => row.slot === "dinner")).toHaveLength(4);
+    expect(week.some((row) => row.slot === "lunch")).toBe(true);
+    expect(week.some((row) => row.slot === "breakfast")).toBe(true);
+    expect((await getWeekMeta(startOfWeekISO(today)))?.prepOn).toBe(addDaysISO(startOfWeekISO(today), -1));
+    expect((await listShoppingList(startOfWeekISO(today))).length).toBeGreaterThan(0);
     expect(await getWeeklyReview(lastWeek)).not.toBeNull();
     expect((await getDayActions(today)).length).toBeGreaterThan(0);
   }, 120_000);

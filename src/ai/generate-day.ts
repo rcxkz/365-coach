@@ -15,6 +15,8 @@ import { getFuelDay, getMealDefinition } from "@/data/repos/fuel";
 import { getLatestReview } from "@/data/repos/reviews";
 import { generateFuelDay } from "./generate-fuel";
 import { getDayActions, replaceDayActions } from "@/data/repos/today";
+import { mealsEatenOn, mealsMadeOn, weekPreppedOn } from "@/data/repos/week-plan";
+import { foodActionsFromPlan } from "@/domain/prep-day";
 import {
   createWorkout,
   deleteWorkoutByDate,
@@ -593,6 +595,46 @@ async function buildFoodActions(targetDate: string) {
   try {
     const { profile } = await getProfile();
     if (!profile.modules.fuel) return [];
+
+    // A week planned day by day (Phase 17) sets the day's food: the prep
+    // session, and what's eaten, prepped or cooked tonight.
+    const [eatenToday, madeToday, prepWeek] = await Promise.all([
+      mealsEatenOn(targetDate),
+      mealsMadeOn(targetDate),
+      weekPreppedOn(targetDate),
+    ]);
+    if (eatenToday.length > 0 || madeToday.length > 0) {
+      const ids = [...new Set([...eatenToday, ...madeToday].map((row) => row.mealId))];
+      const defs = await Promise.all(ids.map((id) => getMealDefinition(id)));
+      const meals = new Map(
+        defs.filter((def): def is NonNullable<typeof def> => Boolean(def)).map((def) => [def.id, def]),
+      );
+      const planned = foodActionsFromPlan({
+        date: targetDate,
+        prepOn: prepWeek?.prepOn ?? null,
+        madeToday,
+        eatenToday,
+        meals,
+      });
+      // Keeps the Fuel screen's "tonight" on the same dinner, and covers
+      // a planned day with no dinner of its own.
+      const { day } = await generateFuelDay(targetDate);
+      if (!eatenToday.some((row) => row.slot === "dinner") && day.dinnerMealId) {
+        const dinner = await getMealDefinition(day.dinnerMealId);
+        if (dinner) {
+          planned.push({
+            domain: "fuel",
+            kind: "food",
+            title: `Dinner: ${dinner.name}`,
+            detail: `${dinner.activeMinutes} min hands-on · ${dinner.totalMinutes} min total`,
+            rationale: day.dinnerReason,
+            mealId: dinner.id,
+          });
+        }
+      }
+      return planned;
+    }
+
     const { day } = await generateFuelDay(targetDate);
     const existing = await getFuelDay(targetDate);
     const meal = day.dinnerMealId

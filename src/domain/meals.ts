@@ -10,7 +10,7 @@
  * anyone; dietary rules beyond that are the user's setup (Phase 15).
  */
 
-export const MEAL_SLOTS = ["dinner", "lunch"] as const;
+export const MEAL_SLOTS = ["breakfast", "lunch", "dinner"] as const;
 export type MealSlot = (typeof MEAL_SLOTS)[number];
 
 export const COOK_METHODS = [
@@ -68,6 +68,8 @@ const CUPBOARD = [
   "harissa",
   "peanut_butter",
   "honey",
+  "granola",
+  "chia_seeds",
   "seasonings",
   "garlic",
   "ginger",
@@ -87,6 +89,7 @@ const PROTEINS = [
   "tofu",
   "bacon",
   "sausages",
+  "smoked_salmon",
 ] as const;
 
 const PRODUCE = [
@@ -106,6 +109,9 @@ const PRODUCE = [
   "lime",
   "avocado",
   "herbs",
+  "banana",
+  "frozen_berries",
+  "coconut_yoghurt",
 ] as const;
 
 /**
@@ -262,7 +268,7 @@ export function buildUserMeal(
   const name = input.name.trim().slice(0, 80);
   if (!name) problems.push("It needs a name.");
   const slots = MEAL_SLOTS.filter((slot) => input.slots.includes(slot));
-  if (slots.length === 0) problems.push("Pick lunch, dinner or both.");
+  if (slots.length === 0) problems.push("Pick at least one: breakfast, lunch or dinner.");
   const core = [...new Set(input.coreIngredients.filter(isIngredientKey))];
   if (core.length === 0) problems.push("Add at least one ingredient it can't do without.");
   const active = Math.round(input.activeMinutes);

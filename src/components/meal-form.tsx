@@ -205,7 +205,7 @@ export function MealForm({
         <fieldset className="flex flex-col gap-1.5">
           <legend className="mb-1.5 text-sm font-medium">Good for</legend>
           <div className="flex gap-2">
-            {(["dinner", "lunch"] as const).map((slot) => (
+            {(["breakfast", "lunch", "dinner"] as const).map((slot) => (
               <label key={slot} className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
                 <input
                   type="checkbox"
@@ -214,7 +214,7 @@ export function MealForm({
                   checked={meal.slots.includes(slot)}
                   onChange={() => toggleSlot(slot)}
                 />
-                {slot === "dinner" ? "Dinner" : "Lunch"}
+                {slot === "breakfast" ? "Breakfast" : slot === "lunch" ? "Lunch" : "Dinner"}
               </label>
             ))}
           </div>

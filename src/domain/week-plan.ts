@@ -346,6 +346,8 @@ export function scorePoolOverlap(pool: MealDefinition[]): PoolOverlap {
 /** Bounds for what the user can ask a week to hold (Phase 13). */
 export const DINNER_RANGE = { min: 3, max: 7, default: WEEK_POOL_SIZE } as const;
 export const LUNCH_RANGE = { min: 0, max: 3, default: 1 } as const;
+/** Breakfast varieties in a week (Phase 17); each covers a run of mornings. */
+export const BREAKFAST_RANGE = { min: 0, max: 3, default: 2 } as const;
 
 export function clampWeekShape(dinners: number, lunches: number): { dinners: number; lunches: number } {
   const clamp = (value: number, range: { min: number; max: number; default: number }) =>

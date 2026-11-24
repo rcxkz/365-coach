@@ -16,7 +16,7 @@ import { INGREDIENTS, ingredientKey, PROTEIN_FOCUS, type UserMealInput } from "@
 const MealDraft = z.object({
   name: z.string().describe("Short, plain name, e.g. 'Chicken fajita traybake'"),
   description: z.string().describe("One line: what it is and why it's easy"),
-  slots: z.array(z.enum(["dinner", "lunch"])),
+  slots: z.array(z.enum(["breakfast", "lunch", "dinner"])),
   activeMinutes: z.number().int().describe("Hands-on minutes only — not oven or simmer time"),
   totalMinutes: z.number().int(),
   proteinFocus: z.enum(PROTEIN_FOCUS),

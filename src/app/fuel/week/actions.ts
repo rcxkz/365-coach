@@ -5,19 +5,27 @@ import { redirect } from "next/navigation";
 import { generateWeekPlan } from "@/ai/generate-week-plan";
 import {
   addShoppingItem,
-  refreshShoppingList,
+  buildShoppingList,
+  markWeekChanged,
   removeShoppingItem,
-  removeWeekMeal,
+  removeMealFromWeek,
   setShoppingStatus,
   stockPantryFromShopping,
   type ShoppingStatus,
 } from "@/data/repos/week-plan";
-import { startOfWeekISO, todayInTimeZone } from "@/domain/dates";
+import { addDaysISO, startOfWeekISO, todayInTimeZone } from "@/domain/dates";
 import { requireSession } from "@/lib/require-session";
 
-function thisWeek(): string {
-  return startOfWeekISO(todayInTimeZone());
+/** This week's Monday, or next week's when the page is showing next week. */
+function weekFor(which: FormDataEntryValue | null | undefined): string {
+  const thisWeek = startOfWeekISO(todayInTimeZone());
+  return which === "next" ? addDaysISO(thisWeek, 7) : thisWeek;
 }
+
+const pageFor = (which: FormDataEntryValue | null | undefined) =>
+  which === "next" ? "/fuel/week?week=next" : "/fuel/week";
+
+const withParam = (page: string, param: string) => `${page}${page.includes("?") ? "&" : "?"}${param}`;
 
 function refresh() {
   revalidatePath("/fuel/week");
@@ -25,19 +33,23 @@ function refresh() {
   revalidatePath("/");
 }
 
-/** How many dinners and dedicated lunch preps come from the plan form. */
+/** Plans the week: how many of each meal, and the prep day, from the form. */
 export async function planWeek(formData: FormData): Promise<void> {
   await requireSession();
+  const which = formData.get("week");
   // Absent fields fall back to the defaults rather than reading as 0.
   const count = (name: string) => {
     const value = formData.get(name);
     return value === null || value === "" ? undefined : Number(value);
   };
+  const prepOn = formData.get("prepOn");
   let mode: string;
   try {
-    const result = await generateWeekPlan(thisWeek(), {
+    const result = await generateWeekPlan(weekFor(which), {
       dinners: count("dinners"),
       lunches: count("lunches"),
+      breakfasts: count("breakfasts"),
+      prepOn: typeof prepOn === "string" && prepOn ? prepOn : undefined,
     });
     mode = result.mode;
   } catch (error) {
@@ -45,35 +57,49 @@ export async function planWeek(formData: FormData): Promise<void> {
     mode = "error";
   }
   refresh();
-  redirect(`/fuel/week?planned=${mode}`);
+  redirect(withParam(pageFor(which), `planned=${mode}`));
+}
+
+/** "Make my list": the planned meals' shopping, built when asked for. */
+export async function makeList(formData: FormData): Promise<void> {
+  await requireSession();
+  const which = formData.get("week");
+  await buildShoppingList(weekFor(which));
+  refresh();
+  redirect(`${withParam(pageFor(which), "list=made")}#list`);
 }
 
 export async function addShoppingLine(formData: FormData): Promise<void> {
   await requireSession();
+  const which = formData.get("week");
   const ingredient = String(formData.get("ingredient") ?? "");
-  await addShoppingItem(thisWeek(), ingredient);
+  await addShoppingItem(weekFor(which), ingredient);
   refresh();
-  redirect("/fuel/week");
+  redirect(`${pageFor(which)}#list`);
 }
 
-/** Dropping a meal re-derives the list, so the two can't drift apart. */
-export async function dropWeekMeal(id: number): Promise<void> {
+/**
+ * Dropping a meal changes the plan: a list already made says it's out
+ * of date, and rebuilds when asked, rather than changing under you.
+ */
+export async function dropWeekMeal(mealId: string, which: string | null): Promise<void> {
   await requireSession();
-  await removeWeekMeal(id);
-  await refreshShoppingList(thisWeek());
+  await removeMealFromWeek(weekFor(which), mealId);
+  await markWeekChanged(weekFor(which));
   refresh();
-  redirect("/fuel/week");
+  redirect(pageFor(which));
 }
 
 /**
  * The move the whole phase rests on (G6): what you bought becomes what's
  * in the house, so the pantry is never a thing you sit down and maintain.
  */
-export async function stockUp(): Promise<void> {
+export async function stockUp(formData: FormData): Promise<void> {
   await requireSession();
-  const stocked = await stockPantryFromShopping(thisWeek());
+  const which = formData.get("week");
+  const stocked = await stockPantryFromShopping(weekFor(which));
   refresh();
-  redirect(`/fuel/week?stocked=${stocked}`);
+  redirect(withParam(pageFor(which), `stocked=${stocked}`));
 }
 
 /**

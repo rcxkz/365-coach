@@ -189,9 +189,9 @@ export function availableEquipment(setup: EquipmentSetup): Equipment[] | null {
 const MEAT = [
   "chicken_thighs", "chicken_breast", "beef_mince", "steak", "pork", "bacon", "sausages",
 ];
-const FISH = ["salmon", "white_fish", "prawns", "tuna"];
+const FISH = ["salmon", "white_fish", "prawns", "tuna", "smoked_salmon"];
 const ANIMAL_OTHER = ["eggs", "honey"];
-const GLUTEN = ["pasta", "noodles", "couscous", "tortillas", "bread", "soy_sauce", "oats"];
+const GLUTEN = ["pasta", "noodles", "couscous", "tortillas", "bread", "soy_sauce", "oats", "granola"];
 const DAIRY = ["milk", "butter", "cheese", "cream", "yoghurt"];
 
 const EXCLUDED: Record<DietRule, string[]> = {

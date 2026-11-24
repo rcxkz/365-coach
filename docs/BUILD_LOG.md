@@ -61,6 +61,16 @@
 - **No dead ends:** a copy missing its database, its tables or its passcode shows a "Finish setting up" page with the exact next step, never an error. A local copy runs with `npm install && npm run dev` and nothing else.
 - **Review fixes:** offline sets can't be lost or come back after an undo. Failed taps no longer crash a page. Re-planning keeps what's done. Progress follows your plan.
 
+## Week prep and settings (November)
+
+- **Week prep:**
+  - breakfasts join lunches and dinners, planned day by day, Monday to Sunday;
+  - a prep session on the day you choose batches what keeps (three days in the fridge, longer if it freezes), makes a second batch the evening before when a run is too long, and leaves the rest to cook on the night;
+  - Today shows the prep session on prep day, then each meal as "prepped" or "cook tonight";
+  - the shopping list is made on request and says when the plan has moved on since;
+  - you can plan next week, not only this one, and consecutive weeks avoid repeating meals.
+- **Settings one tap away:** a gear on every screen, every setup answer shown with a Change link, and "Redo setup from scratch". Saving setup no longer resets the journal's trackers.
+
 ## How the work was run
 
 - **Propose before building:** every phase started with a short design and its trade-offs, then a decision record (`D*`, `G*`, `Y*`…).

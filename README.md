@@ -85,7 +85,7 @@ If a person asks you to help them set up or change this app, these are the facts
 
 ## What it does
 
-- **Today:** one short list for the day: the session, tonight's dinner, tomorrow's lunch.
+- **Today:** one short list for the day: the session and the day's meals, saying which are prepped and which to cook tonight, with the prep session on prep day.
 - **Train:**
   - **Planning:** sessions are planned from your chosen plan (five to pick from), equipment, session length and how you feel this morning.
   - **Logging:** one tap per set, and it works offline in the gym.
@@ -93,8 +93,8 @@ If a person asks you to help them set up or change this app, these are the facts
   - **Breaks:** if you're ill or take a break, pause. When you're back, the first three sessions ease you in.
 - **Fuel:**
   - **Kitchen:** tap through what's in (in / running low / out).
-  - **Week plan:** plans the week's dinners and lunch preps around what you have.
-  - **Shopping:** one shopping list grouped by aisle.
+  - **Week prep:** plans breakfasts, lunches and dinners day by day, around what you have. A prep session (Sunday, or a day you choose) batches what keeps, and the rest is cooked on the night. Prepped food is planned to be eaten within three days, or frozen.
+  - **Shopping:** one list grouped by aisle, made when you tap **Make my list**, so you can change the week first. Plan this week or next.
   - **Your meals:** add your own by hand, or describe one and let the AI fill it in.
 - **Journal:** tap how you feel, plus anything you choose to track. High stress means a lighter session and an easier dinner, and the weekly review looks for patterns.
 - **Weekly review:** "step up / repeat / ease off" for each exercise, with a short written summary.

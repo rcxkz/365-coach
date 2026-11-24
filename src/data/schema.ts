@@ -416,9 +416,16 @@ export const weekPlanMeals = pgTable("week_plan_meals", {
     .references(() => meals.id, { onDelete: "cascade" }),
   /** One line on why this meal is in the week. */
   reason: text("reason"),
-  /** `dinner`, or `lunch` for a dedicated lunch prep (Phase 13). */
+  /** `dinner`, `lunch` (a dedicated lunch prep, Phase 13) or `breakfast`. */
   slot: text("slot").notNull().default("dinner"),
   cookedOn: date("cooked_on"),
+  /**
+   * Week prep: the day it's made (the prep session, the evening before,
+   * or null for "make it on the day") and the days it's eaten. Null on
+   * weeks planned before day plans existed.
+   */
+  makeOn: date("make_on"),
+  eatDays: text("eat_days").array(),
   addedAt: timestamp("added_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -653,4 +660,20 @@ export const appLock = pgTable("app_lock", {
   id: integer("id").primaryKey().default(1),
   passcodeHash: text("passcode_hash").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * One row per planned week: when the prep session is, the shape asked
+ * for (so the form remembers it), and when the shopping list was last
+ * built. The list builds only when asked; `changedAt` after
+ * `listBuiltAt` means the plan moved on and the list is out of date.
+ */
+export const weekPlans = pgTable("week_plans", {
+  weekStart: date("week_start").primaryKey(),
+  prepOn: date("prep_on"),
+  breakfasts: integer("breakfasts").notNull().default(0),
+  lunches: integer("lunches").notNull().default(1),
+  dinners: integer("dinners").notNull().default(5),
+  listBuiltAt: timestamp("list_built_at", { withTimezone: true }),
+  changedAt: timestamp("changed_at", { withTimezone: true }).notNull().defaultNow(),
 });
