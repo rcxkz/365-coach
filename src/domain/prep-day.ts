@@ -51,12 +51,14 @@ export function foodActionsFromPlan(input: {
     .map((id) => meals.get(id))
     .filter((meal): meal is PlannedMeal => Boolean(meal));
   if (sessionMeals.length > 0) {
-    const { order, minutes } = prepSession(sessionMeals);
+    const { order, minutes, slowCookerHours } = prepSession(sessionMeals);
     actions.push({
       domain: "fuel",
       kind: "food",
       title: `Prep session: ${order.length} ${order.length === 1 ? "thing" : "things"}, about ${minutes} min`,
-      detail: order.map((meal) => meal.name).join(" → "),
+      detail: `${order.map((meal) => meal.name).join(" → ")}${
+        slowCookerHours ? ` · then the slow cooker runs about ${slowCookerHours} hours on its own` : ""
+      }`,
       rationale: "Longest cooks first, so the oven works while you chop the rest. Portion it up as it cools.",
     });
   }

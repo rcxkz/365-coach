@@ -24,6 +24,8 @@ export interface PrepMeal {
   freezerFriendly: boolean;
   activeMinutes: number;
   totalMinutes: number;
+  /** A slow cooker runs on its own: its hours aren't the session's. */
+  methods?: readonly string[];
 }
 
 export interface DayPlanEntry {
@@ -164,15 +166,25 @@ const JUGGLE_MINUTES = 5;
  * and all the hands-on minutes (plus a few per extra dish for switching
  * between them and portioning), rounded up to five.
  */
-export function prepSession(meals: PrepMeal[]): { order: PrepMeal[]; minutes: number } {
+export function prepSession<T extends PrepMeal>(
+  meals: T[],
+): { order: T[]; minutes: number; slowCookerHours: number | null } {
   const order = [...meals].sort(
     (a, b) => b.totalMinutes - b.activeMinutes - (a.totalMinutes - a.activeMinutes) || b.activeMinutes - a.activeMinutes,
   );
   const handsOn =
     meals.reduce((sum, meal) => sum + meal.activeMinutes, 0) +
     JUGGLE_MINUTES * Math.max(0, meals.length - 1);
-  const slowest = meals.reduce((most, meal) => Math.max(most, meal.totalMinutes), 0);
-  return { order, minutes: Math.ceil(Math.max(handsOn, slowest) / 5) * 5 };
+  // A slow cooker goes on first and is left: you're not standing there
+  // for its five hours, so it doesn't set the session's length.
+  const slow = (meal: PrepMeal) => meal.methods?.includes("slow_cooker") ?? false;
+  const slowest = meals.filter((meal) => !slow(meal)).reduce((most, meal) => Math.max(most, meal.totalMinutes), 0);
+  const slowCooker = meals.filter(slow).reduce((most, meal) => Math.max(most, meal.totalMinutes), 0);
+  return {
+    order,
+    minutes: Math.ceil(Math.max(handsOn, slowest) / 5) * 5,
+    slowCookerHours: slowCooker > 0 ? Math.round((slowCooker / 60) * 2) / 2 : null,
+  };
 }
 
 /** Whether part of a batch made on `makeDay` is eaten past the fridge window. */

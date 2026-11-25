@@ -11,18 +11,6 @@ import { Button } from "@/components/ui/button";
 import type { TodayAction } from "@/data/repos/today";
 import { cn } from "@/lib/utils";
 
-/**
- * Which part of life this belongs to — real information, so it's
- * labelled rather than decorated. Set in mono so the labels stack into
- * a column down the left of the day.
- */
-const DOMAIN_LABEL: Record<string, string> = {
-  fitness: "train",
-  fuel: "eat",
-  money: "money",
-  mission: "build",
-  general: "note",
-};
 
 function ActionBody({ action }: { action: TodayAction }) {
   const done = action.status === "done";
@@ -30,15 +18,7 @@ function ActionBody({ action }: { action: TodayAction }) {
     <div className="min-w-0 flex-1">
       <p
         className={cn(
-          "figure text-[0.625rem] uppercase tracking-[0.16em]",
-          done ? "text-muted-foreground/50" : "text-muted-foreground",
-        )}
-      >
-        {DOMAIN_LABEL[action.domain] ?? action.domain}
-      </p>
-      <p
-        className={cn(
-          "mt-0.5 leading-snug",
+          "leading-snug",
           done ? "text-muted-foreground line-through" : "font-medium",
         )}
       >

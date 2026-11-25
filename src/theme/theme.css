@@ -53,7 +53,8 @@
   --accent: color-mix(in srgb, var(--paper) 8%, var(--ink));
   --accent-foreground: var(--paper);
   --destructive: var(--marker);
-  --border: color-mix(in srgb, var(--paper) 22%, transparent);
+  /* Rules strong enough to separate sections on a phone in daylight. */
+  --border: color-mix(in srgb, var(--paper) 30%, transparent);
   --input: color-mix(in srgb, var(--paper) 34%, transparent);
   --ring: var(--highlight);
   /* Readiness (doc 12): go · ease · stop. */

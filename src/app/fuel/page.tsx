@@ -3,12 +3,13 @@ import { ArrowLeft, Check, ChevronDown, ChevronRight, Clock, Sparkles, X } from 
 import { markCooked, suggestDinner, toggleLunchSorted } from "./actions";
 import { Badge } from "@/components/ui/badge";
 import { PendingButton } from "@/components/pending-button";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getFuelDay, listAllMeals, listPantry } from "@/data/repos/fuel";
 import { USER_MEAL_PREFIX, type MealDefinition } from "@/domain/meals";
-import { outstandingCount, uncookedWeekMeals } from "@/data/repos/week-plan";
-import { startOfWeekISO, todayInTimeZone } from "@/domain/dates";
+import { listWeekPlan, outstandingCount, uncookedWeekMeals } from "@/data/repos/week-plan";
+import { addDaysISO, startOfWeekISO, todayInTimeZone } from "@/domain/dates";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -131,14 +132,36 @@ export default async function FuelPage({
   const { cooked } = await searchParams;
   const date = todayInTimeZone();
   const weekStart = startOfWeekISO(date);
-  const [day, pantry, weekLeft, lunchesLeft, toBuy, allMeals] = await Promise.all([
+  const nextWeek = addDaysISO(weekStart, 7);
+  const [day, pantry, weekLeft, lunchesLeft, toBuy, allMeals, thisPlan, nextPlan] = await Promise.all([
     getFuelDay(date),
     listPantry(),
     uncookedWeekMeals(weekStart, "dinner"),
     uncookedWeekMeals(weekStart, "lunch"),
     outstandingCount(weekStart),
     listAllMeals(),
+    listWeekPlan(weekStart),
+    listWeekPlan(nextWeek),
   ]);
+  const weekPlanned = thisPlan.length > 0;
+  // From Friday, next week is the one worth planning.
+  const lateInWeek = date >= addDaysISO(weekStart, 4);
+  const weekLine = weekPlanned
+    ? [
+        `${weekLeft.length} ${weekLeft.length === 1 ? "dinner" : "dinners"} to cook`,
+        lunchesLeft.length > 0 ? `${lunchesLeft.length} lunch ${lunchesLeft.length === 1 ? "prep" : "preps"}` : null,
+        toBuy > 0 ? `${toBuy} to buy` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "Not planned yet. Pick how many meals and a prep day, and it lays the week out.";
+  const range = (start: string) => {
+    const fmt = (iso: string, withMonth: boolean) =>
+      new Intl.DateTimeFormat("en-GB", { day: "numeric", ...(withMonth ? { month: "short" } : {}), timeZone: "UTC" }).format(
+        new Date(`${iso}T12:00:00Z`),
+      );
+    return `${fmt(start, false)}–${fmt(addDaysISO(start, 6), true)}`;
+  };
   const mine = allMeals.filter((meal) => meal.id.startsWith(USER_MEAL_PREFIX));
   const lowCount = pantry.filter((item) => item.runningLow).length;
   const mealsById = new Map(allMeals.map((meal) => [meal.id, meal]));
@@ -165,6 +188,49 @@ export default async function FuelPage({
           Noted — that shapes what gets suggested next.
         </p>
       )}
+
+      {/* The week leads (Phase 18): planning and the shop are what this
+          tab is for, so they're the first thing on it, not a link at the
+          bottom. */}
+      <section className="mb-8 border border-foreground p-4">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="eyebrow">Your week</h2>
+          <span className="figure text-xs text-muted-foreground">{range(weekStart)}</span>
+        </div>
+        <p className="mt-2 text-sm">{weekLine}</p>
+        <div className="mt-4 flex flex-col gap-2">
+          {weekPlanned ? (
+            <>
+              <Link href="/fuel/week" className={cn(buttonVariants(), "h-11 w-full")}>
+                Open the week
+              </Link>
+              <div className="grid grid-cols-2 gap-2">
+                <Link href="/fuel/week#list" className={cn(buttonVariants({ variant: "outline" }), "h-10")}>
+                  Shopping list
+                </Link>
+                <Link
+                  href="/fuel/week?week=next"
+                  className={cn(buttonVariants({ variant: lateInWeek && nextPlan.length === 0 ? "default" : "outline" }), "h-10")}
+                >
+                  {nextPlan.length > 0 ? "Next week" : "Plan next week"}
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <Link href={lateInWeek ? "/fuel/week?week=next" : "/fuel/week"} className={cn(buttonVariants(), "h-11 w-full")}>
+                <Sparkles className="h-4 w-4" />
+                {lateInWeek ? "Plan next week" : "Plan the week"}
+              </Link>
+              {lateInWeek && (
+                <Link href="/fuel/week" className="text-center text-xs text-muted-foreground underline-offset-4 hover:underline">
+                  Or plan the rest of this week
+                </Link>
+              )}
+            </>
+          )}
+        </div>
+      </section>
 
       <section className="mb-8">
         <h2 className="eyebrow mb-3">
@@ -252,37 +318,15 @@ export default async function FuelPage({
       </section>
 
       <section>
-        <h2 className="eyebrow mb-1">Plan and shop</h2>
-        <p className="mb-3 text-xs text-muted-foreground">
-          Once a week: check what&apos;s in, plan around it, shop one list.
-        </p>
+        <h2 className="eyebrow mb-1">Kitchen and meals</h2>
         <div className="flex flex-col divide-y divide-border border-y border-border">
           <HubLink
             href="/fuel/kitchen"
-            title="1 · The kitchen"
+            title="What's in"
             line={
               pantry.length > 0
                 ? `${pantry.length} in${lowCount > 0 ? ` · ${lowCount} running low` : ""}`
-                : "Tell it what's in — start here"
-            }
-          />
-          <HubLink
-            href="/fuel/week"
-            title="2 · This week"
-            line={
-              weekLeft.length + lunchesLeft.length > 0
-                ? [
-                    `${weekLeft.length} ${weekLeft.length === 1 ? "dinner" : "dinners"} to cook`,
-                    lunchesLeft.length > 0
-                      ? `${lunchesLeft.length} lunch ${lunchesLeft.length === 1 ? "prep" : "preps"}`
-                      : null,
-                    toBuy > 0 ? `${toBuy} to buy` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")
-                : toBuy > 0
-                  ? `${toBuy} on the list · plan the week`
-                  : "Plan the week and get one shopping list"
+                : "Tell it what's in, so the week plans around it"
             }
           />
           <HubLink

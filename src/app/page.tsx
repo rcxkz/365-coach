@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles, X } from "lucide-react";
 import { getAi } from "@/ai/client";
 import { pauseTraining, planDay, resumeTraining } from "./actions";
 import { ActionCard } from "@/components/action-card";
@@ -51,6 +51,20 @@ function formatToday(): string {
     day: "numeric",
     month: "long",
   }).format(new Date());
+}
+
+const GROUP_TITLE: Record<string, string> = { fitness: "Train", fuel: "Eat" };
+
+/** Today's actions in parts, training first, in the order they were planned. */
+function groupActions<T extends { domain: string }>(actions: T[]) {
+  const groups = new Map<string, T[]>();
+  for (const action of actions) {
+    const key = action.domain in GROUP_TITLE ? action.domain : "other";
+    groups.set(key, [...(groups.get(key) ?? []), action]);
+  }
+  return ["fitness", "fuel", "other"]
+    .filter((key) => groups.has(key))
+    .map((key) => ({ title: GROUP_TITLE[key] ?? "Also today", items: groups.get(key)! }));
 }
 
 export default async function TodayPage({
@@ -288,7 +302,19 @@ export default async function TodayPage({
       </div>
 
       {notice && (
-        <p className="mb-4 rounded-lg bg-secondary p-3 text-sm">{notice}</p>
+        // The notice lives in the address (?resumed=1 and so on), so
+        // closing it is just Today without it.
+        <div className="mb-6 flex items-start gap-3 bg-secondary p-3 text-sm">
+          <p className="flex-1">{notice}</p>
+          <Link
+            href="/"
+            replace
+            aria-label="Close this message"
+            className="-m-1 p-1 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </Link>
+        </div>
       )}
 
       {actions.length === 0 ? (
@@ -308,13 +334,22 @@ export default async function TodayPage({
           </form>
         </div>
       ) : (
-        <ul className="flex flex-col divide-y divide-border border-y border-border">
-          {actions.map((action) => (
-            <li key={action.id}>
-              <ActionCard action={action} workoutSummary={workoutSummary} />
-            </li>
+        // One heading per part of the day rather than a label on every
+        // card: the sections read at a glance and the cards get room.
+        <div className="flex flex-col gap-7">
+          {groupActions(actions).map(({ title, items }) => (
+            <section key={title}>
+              <h2 className="eyebrow mb-1">{title}</h2>
+              <ul className="flex flex-col divide-y divide-border border-y border-border">
+                {items.map((action) => (
+                  <li key={action.id}>
+                    <ActionCard action={action} workoutSummary={workoutSummary} />
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       )}
 
       {actions.length > 0 && (

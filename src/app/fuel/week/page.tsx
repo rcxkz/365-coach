@@ -407,6 +407,11 @@ export default async function WeekPage({
               <h2 className="mt-1 text-lg font-medium">
                 {dayLabel(prepOn)} · about {session.minutes} min
               </h2>
+              {session.slowCookerHours && (
+                <p className="mt-0.5 text-sm">
+                  Plus about {session.slowCookerHours} hours in the slow cooker, on its own.
+                </p>
+              )}
               <p className="mt-1 text-xs text-muted-foreground">
                 Longest cooks first, so the oven works while you chop the rest. Portion into
                 containers as each one cools.

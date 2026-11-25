@@ -122,3 +122,14 @@ describe("needsFreezing", () => {
     expect(needsFreezing(SUNDAY_BEFORE, ["2026-12-01", "2026-12-04"])).toBe(true);
   });
 });
+
+describe("prepSession with a slow cooker", () => {
+  it("doesn't count the slow cooker's hours as your time", () => {
+    const { minutes, slowCookerHours } = prepSession([
+      meal("chilli", { activeMinutes: 10, totalMinutes: 300, methods: ["slow_cooker"] }),
+      meal("tray", { activeMinutes: 10, totalMinutes: 40, methods: ["oven"] }),
+    ]);
+    expect(minutes).toBe(40);
+    expect(slowCookerHours).toBe(5);
+  });
+});

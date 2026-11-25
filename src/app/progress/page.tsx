@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { ArrowLeft, Check, Minus, TrendingDown, TrendingUp } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { saveMetric } from "./actions";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Fold } from "@/components/fold";
 import {
   countCompletedWorkoutsSince,
   getLatestMetric,
@@ -127,10 +127,14 @@ export default async function ProgressPage({
         </p>
       )}
 
-      <section className="mb-8">
-        <h2 className="eyebrow mb-3">
-          {blockPlan ? "Ready for Block 2 when" : "Going well when"}
-        </h2>
+      {/* Folded sections (Phase 18): one open, the rest a tap away, so
+          the tab doesn't open on a wall of forms. Each closed heading
+          still says what's inside. */}
+      <Fold
+        open
+        title={blockPlan ? "Ready for Block 2 when" : "Going well when"}
+        aside={`${criteria.filter((c) => c.status === "met").length} of ${criteria.length}`}
+      >
         <ul className="flex flex-col gap-3">
           {criteria.map((criterion) => (
             <li key={criterion.id} className="flex gap-2.5">
@@ -155,82 +159,80 @@ export default async function ProgressPage({
           ))}
         </ul>
         {blockPlan && (
-        <p className="mt-3 text-xs text-muted-foreground">
-          {block1.ready
-            ? "Everything's pointing the right way — worth talking about Block 2."
-            : `${block1.metCount} of ${block1.total} in place. Block 1 runs 6–8 weeks; there's no rush on it.`}
-        </p>
-        )}
-      </section>
-
-      <section className="mb-8">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="eyebrow">
-            Mobility
-          </h2>
-          <Link
-            href="/progress/mobility"
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-          >
-            Take the 5-minute check
-          </Link>
-        </div>
-        <TrendNote trend={trends.mobility_score} />
-        {latestMobility?.note && (
-          <p className="mt-1 text-xs text-muted-foreground">
-            {latestMobility.note}
+          <p className="mt-3 text-xs text-muted-foreground">
+            {block1.ready
+              ? "Everything's pointing the right way — worth talking about Block 2."
+              : `${block1.metCount} of ${block1.total} in place. Block 1 runs 6–8 weeks; there's no rush on it.`}
           </p>
         )}
-      </section>
+      </Fold>
 
-      <section>
-        <h2 className="eyebrow mb-3">
-          Record a number
-        </h2>
-        <ul className="flex flex-col gap-3">
+      <Fold title="Mobility" aside={<TrendNote trend={trends.mobility_score} />}>
+        {latestMobility?.note && (
+          <p className="mb-3 text-xs text-muted-foreground">{latestMobility.note}</p>
+        )}
+        <p className="mb-3 text-sm text-muted-foreground">
+          Five tests, one per area. About five minutes, and monthly is plenty.
+        </p>
+        <Link
+          href="/progress/mobility"
+          className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+        >
+          Take the 5-minute check
+        </Link>
+      </Fold>
+
+      <Fold
+        title="Record a number"
+        aside={`${METRIC_KINDS.filter(
+            (kind) => kind !== "mobility_score" && (blockPlan || !BLOCK_ONLY_METRICS.has(kind)),
+          ).filter((kind) => trends[kind]).length} tracked`}
+        className="border-b"
+      >
+        <ul className="flex flex-col divide-y divide-border border-y border-border">
           {METRIC_KINDS.filter(
             (kind) => kind !== "mobility_score" && (blockPlan || !BLOCK_ONLY_METRICS.has(kind)),
-          ).map(
-            (kind) => {
-              const spec = METRIC_SPECS[kind];
-              return (
-                <li key={kind}>
-                  <Card className="py-0">
-                    <CardContent className="p-4">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <p className="text-sm font-medium">{spec.label}</p>
-                        <TrendNote trend={trends[kind]} />
-                      </div>
-                      {spec.hint && (
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          {spec.hint}
-                        </p>
-                      )}
-                      <form action={saveMetric} className="mt-2 flex gap-2">
-                        <input type="hidden" name="kind" value={kind} />
-                        <input
-                          type="number"
-                          name="value"
-                          step={spec.step}
-                          min={spec.min}
-                          max={spec.max}
-                          inputMode="decimal"
-                          placeholder={spec.unit}
-                          aria-label={`${spec.label} in ${spec.unit}`}
-                          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                        />
-                        <Button type="submit" variant="outline" size="sm">
-                          Save
-                        </Button>
-                      </form>
-                    </CardContent>
-                  </Card>
-                </li>
-              );
-            },
-          )}
+          ).map((kind) => {
+            const spec = METRIC_SPECS[kind];
+            return (
+              <li key={kind}>
+                {/* Each number opens on its own: a list of names, not a stack of forms. */}
+                <details className="group/metric">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-3 [&::-webkit-details-marker]:hidden">
+                    <span className="text-sm">{spec.label}</span>
+                    <span className="flex items-center gap-2">
+                      <TrendNote trend={trends[kind]} />
+                      <ChevronDown aria-hidden className="h-4 w-4 text-muted-foreground transition-transform group-open/metric:rotate-180" />
+                    </span>
+                  </summary>
+                  <div className="pb-4">
+                    {spec.hint && (
+                      <p className="text-xs text-muted-foreground">{spec.hint}</p>
+                    )}
+                    <form action={saveMetric} className="mt-2 flex gap-2">
+                      <input type="hidden" name="kind" value={kind} />
+                      <input
+                        type="number"
+                        name="value"
+                        step={spec.step}
+                        min={spec.min}
+                        max={spec.max}
+                        inputMode="decimal"
+                        placeholder={spec.unit}
+                        aria-label={`${spec.label} in ${spec.unit}`}
+                        className="h-10 w-full border border-input bg-background px-3 text-sm"
+                      />
+                      <Button type="submit" variant="outline" className="h-10">
+                        Save
+                      </Button>
+                    </form>
+                  </div>
+                </details>
+              </li>
+            );
+          })}
         </ul>
-      </section>
+      </Fold>
     </main>
   );
 }
