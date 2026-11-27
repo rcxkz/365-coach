@@ -93,7 +93,7 @@ If a person asks you to help them set up or change this app, these are the facts
   - **Breaks:** if you're ill or take a break, pause. When you're back, the first three sessions ease you in.
 - **Fuel:**
   - **Kitchen:** tap through what's in (in / running low / out).
-  - **Week prep:** plans breakfasts, lunches and dinners day by day, around what you have. A prep session (Sunday, or a day you choose) batches what keeps, and the rest is cooked on the night. Prepped food is planned to be eaten within three days, or frozen.
+  - **Week prep:** plans all seven days. For each meal you choose how often you cook it (say, quick breakfasts, lunch prepped twice, a different dinner every night), and it works out what's made when, around what you have. Every meal is 20 minutes hands-on or less, and the week's meals share ingredients where they can. Prepped food is planned to be eaten within three days, or frozen.
   - **Shopping:** one list grouped by aisle, made when you tap **Make my list**, so you can change the week first. Plan this week or next.
   - **Your meals:** add your own by hand, or describe one and let the AI fill it in.
 - **Journal:** tap how you feel, plus anything you choose to track. High stress means a lighter session and an easier dinner, and the weekly review looks for patterns.

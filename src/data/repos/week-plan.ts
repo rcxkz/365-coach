@@ -35,7 +35,15 @@ export async function getWeekMeta(weekStart: string): Promise<WeekMeta | null> {
 /** Records a (re)plan: the shape asked for, and that the plan changed now. */
 export async function saveWeekMeta(
   weekStart: string,
-  meta: { prepOn: string | null; breakfasts: number; lunches: number; dinners: number },
+  meta: {
+    prepOn: string | null;
+    breakfasts: number;
+    lunches: number;
+    dinners: number;
+    breakfastMode?: string | null;
+    lunchMode?: string | null;
+    dinnerMode?: string | null;
+  },
 ): Promise<void> {
   const db = await getDb();
   const changedAt = new Date();

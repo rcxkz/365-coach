@@ -33,22 +33,20 @@ function refresh() {
   revalidatePath("/");
 }
 
-/** Plans the week: how many of each meal, and the prep day, from the form. */
+/** Plans the week: how often each meal is cooked, and the first prep day, from the form. */
 export async function planWeek(formData: FormData): Promise<void> {
   await requireSession();
   const which = formData.get("week");
-  // Absent fields fall back to the defaults rather than reading as 0.
-  const count = (name: string) => {
-    const value = formData.get(name);
-    return value === null || value === "" ? undefined : Number(value);
-  };
   const prepOn = formData.get("prepOn");
   let mode: string;
   try {
+    // normaliseStyle turns anything missing or unknown into the default.
     const result = await generateWeekPlan(weekFor(which), {
-      dinners: count("dinners"),
-      lunches: count("lunches"),
-      breakfasts: count("breakfasts"),
+      style: {
+        breakfast: formData.get("breakfast"),
+        lunch: formData.get("lunch"),
+        dinner: formData.get("dinner"),
+      },
       prepOn: typeof prepOn === "string" && prepOn ? prepOn : undefined,
     });
     mode = result.mode;

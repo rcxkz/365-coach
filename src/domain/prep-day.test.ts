@@ -66,3 +66,20 @@ describe("foodActionsFromPlan", () => {
     expect(action).toMatchObject({ title: "Tonight, also make salad", detail: "For lunches Thu–Fri" });
   });
 });
+
+describe("a dinner cooked double", () => {
+  const row = { mealId: "tuna_bake", slot: "dinner", makeOn: "2026-12-01", eatDays: ["2026-12-01", "2026-12-02"] };
+
+  it("is 'cook tonight' on the first night, with no extra batch or session", () => {
+    const actions = foodActionsFromPlan({ date: "2026-12-01", prepOn: null, meals, eatenToday: [row], madeToday: [row] });
+    expect(actions).toHaveLength(1);
+    expect(actions[0].title).toBe("Cook tonight: tuna bake");
+    expect(actions[0].detail).toMatch(/cook double, it's tomorrow's dinner too/);
+  });
+
+  it("just needs warming the next night", () => {
+    const actions = foodActionsFromPlan({ date: "2026-12-02", prepOn: null, meals, eatenToday: [row], madeToday: [] });
+    expect(actions[0].title).toBe("Dinner: tuna bake");
+    expect(actions[0].detail).toBe("Made Tuesday, so it just needs warming through");
+  });
+});

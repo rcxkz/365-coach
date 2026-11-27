@@ -32,15 +32,21 @@ import {
   type MealDefinition,
 } from "@/domain/meals";
 import {
-  BREAKFAST_RANGE,
-  DINNER_RANGE,
   deriveShoppingList,
-  LUNCH_RANGE,
   pantryDepth,
   scorePoolOverlap,
 } from "@/domain/week-plan";
 import { SLOT_PLURAL } from "@/domain/prep-day";
-import { defaultPrepDay, needsFreezing, prepDayOptions, prepSession, weekDays } from "@/domain/week-prep";
+import {
+  cookedOnTheDay,
+  defaultPrepDay,
+  needsFreezing,
+  normaliseStyle,
+  prepDayOptions,
+  prepSession,
+  weekDays,
+  type WeekStyle,
+} from "@/domain/week-prep";
 
 export const dynamic = "force-dynamic";
 
@@ -99,15 +105,35 @@ function daySpan(days: string[]): string {
 const SLOT_LABEL = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner" } as const;
 const SLOT_ORDER = ["breakfast", "lunch", "dinner"] as const;
 
-const range = (from: number, to: number) =>
-  Array.from({ length: to - from + 1 }, (_, index) => from + index);
 
-/** The week's shape and prep day — set each time, defaulting to last time. */
+const STYLE_OPTIONS = {
+  breakfast: [
+    ["quick", "Quick each morning (10 min or less)"],
+    ["make_ahead", "Make ahead in batches"],
+    ["none", "Not planned"],
+  ],
+  lunch: [
+    ["prep_twice", "Prep twice a week"],
+    ["every_other_day", "Cook every other day"],
+    ["daily", "No prep: make it on the day (15 min or less)"],
+    ["none", "Not planned"],
+  ],
+  dinner: [
+    ["nightly", "Cook every night"],
+    ["every_other_night", "Cook every other night (leftovers the next)"],
+    ["prep_some", "Prep two ahead, cook the rest"],
+    ["none", "Not planned"],
+  ],
+} as const satisfies Record<keyof WeekStyle, readonly (readonly [string, string])[]>;
+
+/**
+ * The week's shape (Phase 19): seven days, and for each meal how often
+ * you cook it, plus the day of the first prep. Set each time, defaulting
+ * to last time.
+ */
 function PlanForm({
   week,
-  dinners,
-  lunches,
-  breakfasts,
+  style,
   prepOptions,
   prepOn,
   weekStart,
@@ -115,54 +141,35 @@ function PlanForm({
   primary,
 }: {
   week: string;
-  dinners: number;
-  lunches: number;
-  breakfasts: number;
+  style: WeekStyle;
   prepOptions: string[];
   prepOn: string;
   weekStart: string;
   label: string;
   primary: boolean;
 }) {
-  const select = "h-11 w-full border border-input bg-background px-2 text-sm";
-  const field = "flex flex-col gap-1 text-xs text-muted-foreground";
+  const select = "h-11 w-full border border-input bg-background px-2 text-sm text-foreground";
+  const field = "flex flex-col gap-1.5 text-sm";
   return (
-    <form action={planWeek} className="flex flex-col gap-3 text-left">
+    <form action={planWeek} className="flex flex-col gap-4 text-left">
       <input type="hidden" name="week" value={week} />
-      <div className="grid grid-cols-3 gap-2">
-        <label className={field}>
-          Breakfasts
-          <select name="breakfasts" defaultValue={breakfasts} className={select}>
-            {range(BREAKFAST_RANGE.min, BREAKFAST_RANGE.max).map((n) => (
-              <option key={n} value={n}>
-                {n === 0 ? "None" : n === 1 ? "1 kind" : `${n} kinds`}
+      {(["breakfast", "lunch", "dinner"] as const).map((slot) => (
+        <label key={slot} className={field}>
+          <span className="font-medium">{SLOT_LABEL[slot]}</span>
+          <select name={slot} defaultValue={style[slot]} className={select}>
+            {STYLE_OPTIONS[slot].map(([value, text]) => (
+              <option key={value} value={value}>
+                {text}
               </option>
             ))}
           </select>
         </label>
-        <label className={field}>
-          Lunches
-          <select name="lunches" defaultValue={lunches} className={select}>
-            {range(LUNCH_RANGE.min, LUNCH_RANGE.max).map((n) => (
-              <option key={n} value={n}>
-                {n === 0 ? "None" : n === 1 ? "1 prep" : `${n} preps`}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={field}>
-          Dinners
-          <select name="dinners" defaultValue={dinners} className={select}>
-            {range(DINNER_RANGE.min, DINNER_RANGE.max).map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      ))}
       <label className={field}>
-        Prep day: when you&apos;ll cook the make-ahead meals in one go
+        <span className="font-medium">First prep day</span>
+        <span className="-mt-1 text-xs text-muted-foreground">
+          Where the first batch gets made. Later ones are made the evening before they&apos;re needed.
+        </span>
         <select name="prepOn" defaultValue={prepOn} className={select}>
           {prepOptions.map((day) => (
             <option key={day} value={day}>
@@ -171,6 +178,9 @@ function PlanForm({
           ))}
         </select>
       </label>
+      <p className="text-xs text-muted-foreground">
+        Every meal is 20 minutes hands-on or less, and dinners share ingredients where they can.
+      </p>
       <PendingButton
         variant={primary ? "default" : "outline"}
         className="w-full"
@@ -227,7 +237,7 @@ function PlannedMeal({ row, meal, week }: { row: WeekPlanMealRow; meal: MealDefi
 
 /**
  * The week's food (Phase 6; Phase 13; week prep in Phase 17): choose how
- * many breakfasts, lunches and dinners and a prep day, see the week day
+ * often you cook breakfast, lunch and dinner and a first prep day, see the week day
  * by day with what's prepped and what's cooked on the night, and make
  * the shopping list when you're happy with it.
  */
@@ -251,6 +261,7 @@ export default async function WeekPage({
     customAisles(),
     getWeekMeta(weekStart),
   ]);
+  const lastMeta = meta?.dinnerMode ? null : await getWeekMeta(addDaysISO(weekStart, -7));
   const mealsById = new Map(allMeals.map((meal) => [meal.id, meal]));
   const firstRowPerMeal = (slot: string) => {
     const seen = new Set<string>();
@@ -324,15 +335,18 @@ export default async function WeekPage({
   const formDefaults = {
     week: which,
     weekStart,
-    dinners: meta?.dinners ?? (dinnerRows.length || DINNER_RANGE.default),
-    lunches: meta?.lunches ?? (plan.length > 0 ? lunchRows.length : LUNCH_RANGE.default),
-    breakfasts: meta?.breakfasts ?? BREAKFAST_RANGE.default,
+    // This week's choices, else last week's, else the defaults.
+    style: normaliseStyle({
+      breakfast: meta?.breakfastMode ?? lastMeta?.breakfastMode,
+      lunch: meta?.lunchMode ?? lastMeta?.lunchMode,
+      dinner: meta?.dinnerMode ?? lastMeta?.dinnerMode,
+    }),
     prepOptions,
     prepOn: prepOn && prepOptions.includes(prepOn) ? prepOn : defaultPrepDay(weekStart, today),
   };
 
   // The prep session: what's made in one go, and what each covers.
-  const sessionRows = prepOn ? plan.filter((row) => row.makeOn === prepOn) : [];
+  const sessionRows = prepOn ? plan.filter((row) => row.makeOn === prepOn && !cookedOnTheDay(row)) : [];
   const sessionMeals = sessionRows
     .map((row) => mealsById.get(row.mealId))
     .filter((meal): meal is MealDefinition => Boolean(meal));
@@ -393,9 +407,9 @@ export default async function WeekPage({
       {plan.length === 0 ? (
         <div className="mb-8 border border-dashed p-5">
           <p className="mb-4 text-sm text-muted-foreground">
-            Nothing planned for {which === "next" ? "next" : "this"} week yet. Choose how many of each
-            and a prep day. It lays the week out day by day, preps what keeps, and leaves the rest
-            to cook on the night. Then you make the shopping list when you&apos;re happy with it.
+            Nothing planned for {which === "next" ? "next" : "this"} week yet. Choose how often you
+            cook each meal, and it lays all seven days out: what&apos;s made when, and what&apos;s
+            left over for the next day. Then make the shopping list when you&apos;re happy with it.
           </p>
           <PlanForm {...formDefaults} label="Plan the week" primary />
         </div>
@@ -445,7 +459,9 @@ export default async function WeekPage({
                   const eaten = plan
                     .filter((row) => (row.eatDays ?? []).includes(day))
                     .sort((a, b) => SLOT_ORDER.indexOf(a.slot as never) - SLOT_ORDER.indexOf(b.slot as never));
-                  const makeAhead = plan.filter((row) => row.makeOn === day && row.makeOn !== prepOn);
+                  const makeAhead = plan.filter(
+                    (row) => row.makeOn === day && row.makeOn !== prepOn && !cookedOnTheDay(row),
+                  );
                   if (eaten.length === 0 && makeAhead.length === 0 && day !== prepOn) return null;
                   return (
                     <li key={day} className="py-4">
@@ -458,7 +474,11 @@ export default async function WeekPage({
                           const meal = mealsById.get(row.mealId);
                           if (!meal) return null;
                           const how =
-                            row.makeOn === prepOn
+                            row.makeOn === day
+                              ? (row.eatDays ?? []).length > 1
+                                ? "cook double"
+                                : "cook tonight"
+                              : row.makeOn === prepOn
                               ? "prepped"
                               : row.makeOn
                                 ? `made ${weekday(row.makeOn)}`

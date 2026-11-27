@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   assignWeek,
+  cookedOnTheDay,
+  DEFAULT_STYLE,
+  mealsNeeded,
+  normaliseStyle,
+  type WeekStyle,
   defaultPrepDay,
   keepsUntil,
   needsFreezing,
@@ -50,57 +55,122 @@ describe("keepsUntil", () => {
 });
 
 describe("assignWeek", () => {
-  const plan = (over: Partial<Parameters<typeof assignWeek>[0]> = {}) =>
-    assignWeek({ weekStart: WEEK, prepOn: SUNDAY_BEFORE, breakfasts: [], lunches: [], dinners: [], ...over });
+  const MON = "2026-11-30", TUE = "2026-12-01", WED = "2026-12-02", THU = "2026-12-03",
+    FRI = "2026-12-04", SAT = "2026-12-05", SUN = "2026-12-06";
+  const ALL = [MON, TUE, WED, THU, FRI, SAT, SUN];
+  const plan = (style: Partial<WeekStyle>, over: Partial<Parameters<typeof assignWeek>[0]> = {}) =>
+    assignWeek({
+      weekStart: WEEK,
+      prepOn: SUNDAY_BEFORE,
+      style: { breakfast: "none", lunch: "none", dinner: "none", ...style },
+      breakfasts: [],
+      lunches: [],
+      dinners: [],
+      ...over,
+    });
 
-  it("preps lunches that keep, and makes the late-week run the evening before", () => {
-    const entries = plan({ lunches: [meal("bowls"), meal("salad")] });
+  it("cooks a different dinner every night, fresh", () => {
+    const dinners = ALL.map((_, i) => meal(`d${i}`));
+    const entries = plan({ dinner: "nightly" }, { dinners });
+    expect(entries.map((e) => e.eatDays)).toEqual(ALL.map((day) => [day]));
+    expect(entries.every((e) => e.makeOn === null)).toBe(true);
+    expect(new Set(entries.map((e) => e.mealId)).size).toBe(7);
+  });
+
+  it("cooks every other night and warms it up the next", () => {
+    const entries = plan({ dinner: "every_other_night" }, { dinners: [meal("a"), meal("b"), meal("c"), meal("d")] });
+    expect(entries.map((e) => [e.eatDays, e.makeOn])).toEqual([
+      [[MON, TUE], MON],
+      [[WED, THU], WED],
+      [[FRI, SAT], FRI],
+      [[SUN], SUN],
+    ]);
+  });
+
+  it("preps lunch twice across all seven days, the long run on a meal that freezes", () => {
+    const entries = plan(
+      { lunch: "prep_twice" },
+      { lunches: [meal("salad"), meal("chilli", { freezerFriendly: true })] },
+    );
     expect(entries).toEqual([
-      { mealId: "bowls", slot: "lunch", eatDays: ["2026-11-30", "2026-12-01", "2026-12-02"], makeOn: SUNDAY_BEFORE },
-      { mealId: "salad", slot: "lunch", eatDays: ["2026-12-03", "2026-12-04"], makeOn: "2026-12-02" },
+      { mealId: "chilli", slot: "lunch", eatDays: [MON, TUE, WED, THU], makeOn: SUNDAY_BEFORE },
+      { mealId: "salad", slot: "lunch", eatDays: [FRI, SAT, SUN], makeOn: THU },
     ]);
   });
 
-  it("lets a freezer-friendly batch come from the prep session whatever the day", () => {
-    const [late] = plan({ lunches: [meal("chilli", { freezerFriendly: true })] }).filter(() => true);
-    expect(late.makeOn).toBe(SUNDAY_BEFORE);
-    expect(late.eatDays).toHaveLength(5);
+  it("makes a third batch rather than break the fridge rule when nothing freezes", () => {
+    const entries = plan({ lunch: "prep_twice" }, { lunches: [meal("bowls"), meal("salad")] });
+    expect(entries.flatMap((e) => e.eatDays)).toEqual(ALL);
+    expect(entries.map((e) => e.makeOn)).toEqual([SUNDAY_BEFORE, WED, THU]);
   });
 
-  it("covers every breakfast, fresh ones made on the day", () => {
-    const entries = plan({ breakfasts: [meal("oats"), meal("eggs", { batchFriendly: false })] });
-    expect(entries.flatMap((e) => e.eatDays)).toHaveLength(7);
-    // Oats run Mon–Thu: Mon–Wed from the session, Thursday's made Wednesday evening.
-    const oats = entries.filter((e) => e.mealId === "oats");
-    expect(oats.map((e) => [e.eatDays.length, e.makeOn])).toEqual([
-      [3, SUNDAY_BEFORE],
-      [1, "2026-12-02"],
+  it("cooks lunch every other day, the evening before, two lunches taking turns", () => {
+    const entries = plan(
+      { lunch: "every_other_day" },
+      { lunches: [meal("a", { freezerFriendly: true }), meal("b")] },
+    );
+    expect(entries.map((e) => [e.mealId, e.eatDays, e.makeOn])).toEqual([
+      ["a", [MON, TUE], SUNDAY_BEFORE],
+      ["b", [WED, THU], TUE],
+      ["a", [FRI, SAT], THU],
+      ["b", [SUN], SAT],
     ]);
-    expect(entries.find((e) => e.mealId === "eggs")!.makeOn).toBeNull();
   });
 
-  it("preps at most two dinners that keep, and cooks the rest on the night", () => {
-    const entries = plan({
-      dinners: [meal("d1"), meal("d2"), meal("d3"), meal("d4", { batchFriendly: false }), meal("d5")],
+  it("alternates quick breakfasts, made on the morning", () => {
+    const entries = plan({ breakfast: "quick" }, { breakfasts: [meal("eggs"), meal("toast")] });
+    expect(entries).toEqual([
+      { mealId: "eggs", slot: "breakfast", eatDays: [MON, WED, FRI, SUN], makeOn: null },
+      { mealId: "toast", slot: "breakfast", eatDays: [TUE, THU, SAT], makeOn: null },
+    ]);
+  });
+
+  it("makes breakfasts ahead in batches that keep", () => {
+    const entries = plan({ breakfast: "make_ahead" }, { breakfasts: [meal("oats"), meal("muffins")] });
+    expect(entries.flatMap((e) => e.eatDays)).toEqual(ALL);
+    expect(entries[0]).toMatchObject({ mealId: "oats", eatDays: [MON, TUE, WED], makeOn: SUNDAY_BEFORE });
+  });
+
+  it("preps two dinners ahead and cooks the rest", () => {
+    const dinners = ALL.map((_, i) => meal(`d${i}`));
+    const entries = plan({ dinner: "prep_some" }, { dinners });
+    expect(entries.map((e) => e.makeOn)).toEqual([SUNDAY_BEFORE, SUNDAY_BEFORE, null, null, null, null, null]);
+  });
+
+  it("starts a mid-week plan from the prep day", () => {
+    const entries = plan({ dinner: "nightly" }, { prepOn: FRI, dinners: [meal("a"), meal("b"), meal("c")] });
+    expect(entries.map((e) => e.eatDays[0])).toEqual([FRI, SAT, SUN]);
+  });
+});
+
+describe("mealsNeeded", () => {
+  it("matches how often each meal is cooked over the days planned", () => {
+    expect(mealsNeeded({ breakfast: "quick", lunch: "prep_twice", dinner: "nightly" }, 7)).toEqual({
+      breakfast: 2,
+      lunch: 2,
+      dinner: 7,
     });
-    expect(entries.map((e) => e.eatDays[0])).toEqual([
-      "2026-11-30", "2026-12-01", "2026-12-02", "2026-12-03", "2026-12-04",
-    ]);
-    expect(entries.map((e) => e.makeOn)).toEqual([SUNDAY_BEFORE, SUNDAY_BEFORE, null, null, null]);
-  });
-
-  it("starts a mid-week plan from the prep day, cooking that night fresh", () => {
-    const entries = plan({ prepOn: "2026-12-02", dinners: [meal("d1"), meal("d2")] });
-    expect(entries[0]).toMatchObject({ eatDays: ["2026-12-02"], makeOn: null });
-    expect(entries[1]).toMatchObject({ eatDays: ["2026-12-03"], makeOn: "2026-12-02" });
-  });
-
-  it("keeps dinners beyond the days left as spares", () => {
-    const entries = plan({
-      prepOn: "2026-12-05",
-      dinners: [meal("d1"), meal("d2"), meal("d3")],
+    expect(mealsNeeded({ breakfast: "none", lunch: "every_other_day", dinner: "every_other_night" }, 7)).toEqual({
+      breakfast: 0,
+      lunch: 2,
+      dinner: 4,
     });
-    expect(entries.map((e) => e.eatDays.length)).toEqual([1, 1, 0]);
+    expect(mealsNeeded(DEFAULT_STYLE, 2).dinner).toBe(2);
+  });
+
+  it("reads a stored style safely", () => {
+    expect(normaliseStyle({ breakfast: "make_ahead", lunch: "nonsense" })).toEqual({
+      ...DEFAULT_STYLE,
+      breakfast: "make_ahead",
+    });
+    expect(normaliseStyle(null)).toEqual(DEFAULT_STYLE);
+  });
+});
+
+describe("cookedOnTheDay", () => {
+  it("spots tonight's dinner that's also tomorrow's", () => {
+    expect(cookedOnTheDay({ makeOn: "2026-12-01", eatDays: ["2026-12-01", "2026-12-02"] })).toBe(true);
+    expect(cookedOnTheDay({ makeOn: SUNDAY_BEFORE, eatDays: ["2026-11-30"] })).toBe(false);
   });
 });
 

@@ -30,9 +30,10 @@ describe("buildDemo", () => {
     expect(trained.filter((d) => d >= lastWeek && d < startOfWeekISO(today)).length).toBeLessThanOrEqual(4);
 
     expect((await listJournalEntries(addDaysISO(today, -13), today)).length).toBe(13);
-    // This week: prepped on the Sunday before, breakfasts in, list built.
+    // This week: lunches prepped from the Sunday before, a dinner every
+    // night, quick breakfasts, list built.
     const week = await listWeekPlan(startOfWeekISO(today));
-    expect(week.filter((row) => row.slot === "dinner")).toHaveLength(4);
+    expect(week.filter((row) => row.slot === "dinner")).toHaveLength(7);
     expect(week.some((row) => row.slot === "lunch")).toBe(true);
     expect(week.some((row) => row.slot === "breakfast")).toBe(true);
     expect((await getWeekMeta(startOfWeekISO(today)))?.prepOn).toBe(addDaysISO(startOfWeekISO(today), -1));

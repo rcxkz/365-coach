@@ -6,10 +6,13 @@ import { getDayActions } from "@/data/repos/today";
 import { getWeekMeta, listShoppingList, listWeekPlan, buildShoppingList } from "@/data/repos/week-plan";
 import { syncLibraries } from "@/data/sync";
 import { DEFAULT_PROFILE } from "@/domain/profile";
+import { MEAL_LIBRARY } from "@/data/library/meals";
 
 /** A week well ahead, prepped on the Sunday before. */
 const WEEK = "2031-06-02";
 const SUNDAY = "2031-06-01";
+/** Quick breakfasts, lunch prepped twice, a different dinner every night. */
+const MY_WEEK = { breakfast: "quick", lunch: "prep_twice", dinner: "nightly" } as const;
 
 describe("a week planned for prepping", () => {
   beforeAll(async () => {
@@ -17,16 +20,29 @@ describe("a week planned for prepping", () => {
     delete process.env.OPENAI_API_KEY;
     await syncLibraries();
     await saveProfile({ ...DEFAULT_PROFILE, modules: { train: false, fuel: true, journal: false } });
-    await generateWeekPlan(WEEK, { breakfasts: 2, lunches: 1, dinners: 5, prepOn: SUNDAY });
+    await generateWeekPlan(WEEK, { style: MY_WEEK, prepOn: SUNDAY });
   });
 
   it("lays out every day, with what's prepped and when", async () => {
     const plan = await listWeekPlan(WEEK);
     const mornings = plan.filter((r) => r.slot === "breakfast").flatMap((r) => r.eatDays ?? []);
     expect(new Set(mornings).size).toBe(7);
-    expect(plan.filter((r) => r.slot === "dinner")).toHaveLength(5);
+    const lunchDays = plan.filter((r) => r.slot === "lunch").flatMap((r) => r.eatDays ?? []);
+    expect(new Set(lunchDays).size).toBe(7);
+    const dinners = plan.filter((r) => r.slot === "dinner");
+    expect(dinners).toHaveLength(7);
+    expect(new Set(dinners.map((r) => r.mealId)).size).toBe(7);
+    expect(dinners.every((r) => r.makeOn === null)).toBe(true);
     expect(plan.some((r) => r.makeOn === SUNDAY)).toBe(true);
     expect((await getWeekMeta(WEEK))?.prepOn).toBe(SUNDAY);
+  });
+
+  it("keeps every meal to twenty minutes hands-on, breakfasts to ten", async () => {
+    const plan = await listWeekPlan(WEEK);
+    for (const row of plan) {
+      const meal = MEAL_LIBRARY.find((m) => m.id === row.mealId)!;
+      expect(meal.activeMinutes, meal.name).toBeLessThanOrEqual(row.slot === "breakfast" ? 10 : 20);
+    }
   });
 
   it("waits for 'Make my list' before shopping for the meals", async () => {
@@ -49,7 +65,7 @@ describe("a week planned for prepping", () => {
 
   it("changes the meals from one week to the next", async () => {
     const next = "2031-06-09";
-    await generateWeekPlan(next, { breakfasts: 2, lunches: 1, dinners: 5 });
+    await generateWeekPlan(next, { style: MY_WEEK, prepOn: "2031-06-08" });
     const before = new Set((await listWeekPlan(WEEK)).filter((r) => r.slot === "dinner").map((r) => r.mealId));
     const after = (await listWeekPlan(next)).filter((r) => r.slot === "dinner").map((r) => r.mealId);
     expect(after.filter((id) => before.has(id))).toHaveLength(0);

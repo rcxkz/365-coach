@@ -1,5 +1,5 @@
 import type { DayActionDraft } from "./compose-day";
-import { prepSession, type PrepMeal } from "./week-prep";
+import { cookedOnTheDay, prepSession, type PrepMeal } from "./week-prep";
 
 /**
  * Today's food from a week planned day by day (Phase 17): the prep
@@ -46,7 +46,7 @@ export function foodActionsFromPlan(input: {
   const actions: DayActionDraft[] = [];
 
   // The session leads on prep day: it's the one job that sets up the week.
-  const session = prepOn === date ? input.madeToday : [];
+  const session = prepOn === date ? input.madeToday.filter((row) => !cookedOnTheDay(row)) : [];
   const sessionMeals = [...new Set(session.map((row) => row.mealId))]
     .map((id) => meals.get(id))
     .filter((meal): meal is PlannedMeal => Boolean(meal));
@@ -77,7 +77,9 @@ export function foodActionsFromPlan(input: {
       ? `Made ${row.makeOn === prepOn ? "in the prep session" : weekdayName(row.makeOn!)}, ${
           row.slot === "dinner" ? "so it just needs warming through" : "so it's in the fridge"
         }`
-      : `${meal.activeMinutes} min hands-on${meal.totalMinutes > meal.activeMinutes ? ` · ${meal.totalMinutes} min total` : ""}`;
+      : `${meal.activeMinutes} min hands-on${meal.totalMinutes > meal.activeMinutes ? ` · ${meal.totalMinutes} min total` : ""}${
+          row.makeOn === date && (row.eatDays?.length ?? 0) > 1 ? " · cook double, it's tomorrow's dinner too" : ""
+        }`;
     actions.push({
       domain: "fuel",
       kind: "food",
@@ -91,7 +93,7 @@ export function foodActionsFromPlan(input: {
 
   // A batch made this evening for later (not the prep session).
   for (const row of input.madeToday) {
-    if (row.makeOn === prepOn) continue;
+    if (row.makeOn === prepOn || cookedOnTheDay(row)) continue;
     const meal = meals.get(row.mealId);
     if (!meal) continue;
     const covers = SLOT_PLURAL[row.slot] ?? row.slot;

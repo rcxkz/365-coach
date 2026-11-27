@@ -22,17 +22,20 @@ import {
 } from "@/domain/meal-candidates";
 import { formatIngredient, type MealDefinition } from "@/domain/meals";
 import { addDaysISO, todayInTimeZone } from "@/domain/dates";
-import { assignWeek, defaultPrepDay } from "@/domain/week-prep";
+import {
+  assignWeek,
+  defaultPrepDay,
+  MAX_HANDS_ON_MINUTES,
+  mealsNeeded,
+  normaliseStyle,
+  planDays,
+  QUICK_MINUTES,
+  type WeekStyle,
+} from "@/domain/week-prep";
 import {
   pantryDepth,
   pickWeekPool,
   scorePoolOverlap,
-  batchDinnersNeeded,
-  clampWeekShape,
-  BREAKFAST_RANGE,
-  LUNCH_RANGE,
-  pickWeekLunches,
-  WEEK_POOL_SIZE,
 } from "@/domain/week-plan";
 
 /**
@@ -93,10 +96,13 @@ function buildPrompt(input: {
   pantry: string[];
   stocked: boolean;
   dinners: number;
+  alsoBuying: string[];
 }): string {
   return [
-    `Plan ${input.dinners} dinners for the week beginning ${input.weekStart}.`,
-    `They're for seven nights on purpose — the slack covers eating out and leftovers, so don't try to fill every night.`,
+    `Plan ${input.dinners} different dinners for the week beginning ${input.weekStart}, one for each time dinner gets cooked.`,
+    input.alsoBuying.length > 0
+      ? `The week's breakfasts already use: ${input.alsoBuying.map(formatIngredient).join(", ")}. Dinners that use those too make the shop smaller.`
+      : "",
     input.pantry.length > 0
       ? `Already in the house: ${input.pantry.map(formatIngredient).join(", ")}.`
       : "Nothing is recorded in the house, so assume everything is being bought.",
@@ -108,7 +114,6 @@ function buildPrompt(input: {
       .join("\n")}`,
     [
       "Choose a set that hangs together as one small shop: meals sharing ingredients beat five unrelated ones, because the leftover half-bags are what end up in the bin.",
-      "Favour a couple that batch into lunch — impulse lunches are the behaviour this is defending against.",
       "No more than two meals with the same protein.",
       "Favour anything they've said they'd make again, and anything that uses up what's already in.",
       "Each reason is one short sentence in plain language — what makes this meal worth its place in the week.",
@@ -151,22 +156,24 @@ function breakfastNote(candidate: MealCandidate): string {
 }
 
 /**
- * Breakfasts for the week: one that makes ahead first (it's the point
- * of a prep day), then the rest by fewest things to buy, each a
- * different protein where the library allows.
+ * Breakfasts for the week (Phase 19): quick ones made on the morning
+ * (ten minutes or less), or ones that make ahead in a batch; fewest
+ * things to buy first, each a different protein where the library allows.
  */
-function pickBreakfasts(candidates: MealCandidate[], count: number): MealCandidate[] {
+function pickBreakfasts(
+  candidates: MealCandidate[],
+  count: number,
+  mode: WeekStyle["breakfast"],
+): MealCandidate[] {
   if (count <= 0) return [];
+  const fits = (entry: MealCandidate) =>
+    mode === "make_ahead"
+      ? entry.meal.batchFriendly
+      : entry.meal.activeMinutes <= QUICK_MINUTES.breakfast && !entry.meal.batchFriendly;
   const byShop = [...candidates].sort(
     (a, b) => a.missingIngredients.length - b.missingIngredients.length,
   );
-  // One that makes ahead leads; quick fresh ones come next for contrast.
-  const ahead = byShop.find((entry) => entry.meal.batchFriendly);
-  const order = [
-    ...(ahead ? [ahead] : []),
-    ...byShop.filter((entry) => !entry.meal.batchFriendly),
-    ...byShop.filter((entry) => entry.meal.batchFriendly && entry !== ahead),
-  ];
+  const order = [...byShop.filter(fits), ...byShop.filter((entry) => !fits(entry))];
   const picked: MealCandidate[] = [];
   for (const varied of [true, false]) {
     for (const entry of order) {
@@ -177,6 +184,12 @@ function pickBreakfasts(candidates: MealCandidate[], count: number): MealCandida
     }
   }
   return picked;
+}
+
+/** Keeps meals within the hands-on cap, unless that leaves too few to choose from. */
+function withinHandsOn(list: MealCandidate[], needed: number, cap = MAX_HANDS_ON_MINUTES): MealCandidate[] {
+  const quick = list.filter((entry) => entry.meal.activeMinutes <= cap);
+  return quick.length >= needed ? quick : list;
 }
 
 function asSettledCandidate(
@@ -196,16 +209,9 @@ function asSettledCandidate(
 
 export async function generateWeekPlan(
   weekStart: string,
-  shape: { dinners?: number; lunches?: number; breakfasts?: number; prepOn?: string } = {},
+  shape: { style?: Partial<Record<keyof WeekStyle, unknown>>; prepOn?: string } = {},
 ): Promise<WeekPlanResult> {
-  const { dinners, lunches } = clampWeekShape(
-    shape.dinners ?? WEEK_POOL_SIZE,
-    shape.lunches ?? LUNCH_RANGE.default,
-  );
-  const breakfasts = Math.min(
-    BREAKFAST_RANGE.max,
-    Math.max(BREAKFAST_RANGE.min, Math.round(shape.breakfasts ?? BREAKFAST_RANGE.default)),
-  );
+  const style = normaliseStyle(shape.style);
   // The prep session: the asked-for day if it's one on offer, else the
   // default (the Sunday before, or today mid-week).
   // (The form only offers days still ahead; a day earlier in the week is
@@ -214,6 +220,10 @@ export async function generateWeekPlan(
   const inRange =
     shape.prepOn && shape.prepOn >= addDaysISO(weekStart, -1) && shape.prepOn <= addDaysISO(weekStart, 6);
   const prepOn = inRange ? shape.prepOn! : defaultPrepDay(weekStart, today);
+  // Seven days (or what's left of them): how often each meal is cooked
+  // decides how many different meals the week needs.
+  const needed = mealsNeeded(style, planDays(weekStart, prepOn).length);
+  const { breakfast: breakfasts, lunch: lunches, dinner: dinners } = needed;
   const [pantry, userState, existing, allMeals, lastWeek] = await Promise.all([
     pantryForPlanning(),
     listMealUserState(),
@@ -250,6 +260,27 @@ export async function generateWeekPlan(
     if (row.reason) reasons.set(row.mealId, row.reason);
   }
 
+  // Breakfasts first (rules-only), so dinners can share their shopping:
+  // a week of eggs at breakfast makes an egg dinner nearly free.
+  const breakfastPool = pickBreakfasts(
+    withinHandsOn(
+      freshFirst(
+        filterMealCandidates(allMeals, {
+          slot: "breakfast",
+          today: weekStart,
+          pantry,
+          userState,
+          maxMissingIngredients: Number.MAX_SAFE_INTEGER,
+        }),
+        breakfasts,
+      ),
+      breakfasts,
+    ),
+    breakfasts,
+    style.breakfast,
+  );
+  const breakfastBasket = [...new Set(breakfastPool.flatMap((entry) => entry.meal.coreIngredients))];
+
   const allCandidates = filterMealCandidates(allMeals, {
     slot: "dinner",
     today: weekStart,
@@ -259,7 +290,7 @@ export async function generateWeekPlan(
     // shopping list — so the pantry gate has no business here.
     maxMissingIngredients: Number.MAX_SAFE_INTEGER,
   }).filter((entry) => !cookedIds.has(entry.meal.id));
-  const candidates = freshFirst(allCandidates, dinners);
+  const candidates = withinHandsOn(freshFirst(allCandidates, dinners), dinners);
 
   const byId = new Map(candidates.map((entry) => [entry.meal.id, entry]));
   const depth = pantryDepth(candidates);
@@ -267,7 +298,7 @@ export async function generateWeekPlan(
   let mode: "ai" | "rules" = "rules";
 
   const client = getAi();
-  if (client && candidates.length > 0) {
+  if (client && candidates.length > 0 && dinners > 0) {
     try {
       const prompt = buildPrompt({
         weekStart,
@@ -275,6 +306,7 @@ export async function generateWeekPlan(
         pantry: pantry.map((item) => item.ingredient),
         stocked: depth.mode === "stocked",
         dinners,
+        alsoBuying: breakfastBasket,
       });
       const voice = fuelVoice((await getProfile()).profile);
       const result = await client.structured({
@@ -308,47 +340,52 @@ export async function generateWeekPlan(
     size: dinners,
     seed: [...cookedSeed, ...aiPicks],
     prefer,
-    minBatchFriendly: batchDinnersNeeded(lunches),
+    basket: breakfastBasket,
+    // Prepping two ahead needs two that keep; otherwise any dinner will do.
+    minBatchFriendly: style.dinner === "prep_some" ? 2 : 0,
   });
 
   // Dedicated lunch preps (Phase 13): rules-only — they're chosen for
   // sharing the dinners' shop, which is arithmetic, not judgment.
-  const lunchCandidates = freshFirst(
-    filterMealCandidates(allMeals, {
-      slot: "lunch",
-      today: weekStart,
-      pantry,
-      userState,
-      maxMissingIngredients: Number.MAX_SAFE_INTEGER,
-    }).filter((entry) => !cookedIds.has(entry.meal.id)),
-    lunches + dinners,
-  );
-  const lunchPool = pickWeekLunches(lunchCandidates, pool, lunches, {
+  // Fresh-each-day lunches have to be quick; prepped ones have to keep.
+  // Widen only as far as needed: first meals not in last week or this
+  // week's dinners, then last week's too, then the dinners (a diet that
+  // rules out most of the library can leave few that keep).
+  const lunchFits = (entry: MealCandidate) =>
+    style.lunch === "daily"
+      ? entry.meal.activeMinutes <= QUICK_MINUTES.lunch
+      : entry.meal.batchFriendly && entry.meal.activeMinutes <= MAX_HANDS_ON_MINUTES;
+  const lunchAll = filterMealCandidates(allMeals, {
+    slot: "lunch",
+    today: weekStart,
+    pantry,
+    userState,
+    maxMissingIngredients: Number.MAX_SAFE_INTEGER,
+  }).filter((entry) => !cookedIds.has(entry.meal.id));
+  const notDinner = (entry: MealCandidate) => !pool.some((dinner) => dinner.meal.id === entry.meal.id);
+  const lunchTiers = [
+    lunchAll.filter((entry) => notDinner(entry) && !lastWeekIds.has(entry.meal.id)),
+    lunchAll.filter(notDinner),
+    lunchAll,
+  ];
+  const lunchSource =
+    lunchTiers.find((tier) => tier.filter(lunchFits).length >= lunches) ?? lunchAll;
+  const lunchCandidates =
+    lunchSource.filter(lunchFits).length >= lunches ? lunchSource.filter(lunchFits) : lunchSource;
+  const lunchPool = pickWeekPool(lunchCandidates, {
+    size: lunches,
+    minBatchFriendly: style.lunch === "daily" ? 0 : lunches,
+    basket: [...breakfastBasket, ...pool.flatMap((entry) => entry.meal.coreIngredients)],
     seed: settled("lunch"),
     prefer,
   });
-
-  // Breakfasts (Phase 17): rules-only, for variety and for prepping —
-  // one that makes ahead first, then different proteins.
-  const breakfastPool = pickBreakfasts(
-    freshFirst(
-      filterMealCandidates(allMeals, {
-        slot: "breakfast",
-        today: weekStart,
-        pantry,
-        userState,
-        maxMissingIngredients: Number.MAX_SAFE_INTEGER,
-      }),
-      breakfasts,
-    ),
-    breakfasts,
-  );
 
   // When each meal is made and eaten: the prep session, the evening
   // before, or on the day (food-safety rules in domain/week-prep).
   const days = assignWeek({
     weekStart,
     prepOn,
+    style,
     breakfasts: breakfastPool.map((entry) => entry.meal),
     lunches: lunchPool.map((entry) => entry.meal),
     dinners: pool.map((entry) => entry.meal),
@@ -388,7 +425,15 @@ export async function generateWeekPlan(
   }
 
   const meals = await saveWeekPlan(weekStart, entries);
-  await saveWeekMeta(weekStart, { prepOn, breakfasts, lunches, dinners });
+  await saveWeekMeta(weekStart, {
+    prepOn,
+    breakfasts,
+    lunches,
+    dinners,
+    breakfastMode: style.breakfast,
+    lunchMode: style.lunch,
+    dinnerMode: style.dinner,
+  });
   // The list builds when asked ("Make my list"); this only keeps the
   // running-low part current, and leaves a built list to say it's stale.
   await refreshShoppingList(weekStart);

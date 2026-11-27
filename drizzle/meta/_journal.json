@@ -162,6 +162,13 @@
       "when": 1795483994521,
       "tag": "0022_zippy_marauders",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1795645183548,
+      "tag": "0023_long_silver_sable",
+      "breakpoints": true
     }
   ]
 }

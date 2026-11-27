@@ -59,7 +59,7 @@ describe("Anything else to leave out (Phase 18)", () => {
   it("keeps what's written there out of the week and off the list", async () => {
     await saveProfile({ food: { avoid: "I can't have oats, and no tomatoes" } });
     const week = "2031-09-01";
-    await generateWeekPlan(week, { breakfasts: 3, lunches: 2, dinners: 5 });
+    await generateWeekPlan(week, { style: { breakfast: "make_ahead", lunch: "prep_twice", dinner: "nightly" } });
     const meals = await weekPlanMealDefinitions(week);
     expect(meals.some((meal) => meal.slots.includes("breakfast"))).toBe(true);
     const banned = ["oats", "oat_milk", "tomatoes", "tinned_tomatoes"];

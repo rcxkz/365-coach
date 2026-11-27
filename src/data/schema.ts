@@ -674,6 +674,10 @@ export const weekPlans = pgTable("week_plans", {
   breakfasts: integer("breakfasts").notNull().default(0),
   lunches: integer("lunches").notNull().default(1),
   dinners: integer("dinners").notNull().default(5),
+  /** How each meal gets made (Phase 19); null on weeks planned by count. */
+  breakfastMode: text("breakfast_mode"),
+  lunchMode: text("lunch_mode"),
+  dinnerMode: text("dinner_mode"),
   listBuiltAt: timestamp("list_built_at", { withTimezone: true }),
   changedAt: timestamp("changed_at", { withTimezone: true }).notNull().defaultNow(),
 });

@@ -207,7 +207,7 @@ describe("a week plan on an OpenAI-compatible provider", () => {
         }),
       );
     });
-    const result = await generateWeekPlan("2026-09-07", { lunches: 0 });
+    const result = await generateWeekPlan("2026-09-07", { style: { lunch: "none" } });
     expect(result.mode).toBe("ai");
     expect(result.meals.some((meal) => meal.mealId === "made_up_meal")).toBe(false);
   });

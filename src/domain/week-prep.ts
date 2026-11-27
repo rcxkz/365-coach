@@ -42,10 +42,6 @@ export function weekDays(weekStart: string): string[] {
   return Array.from({ length: 7 }, (_, i) => addDaysISO(weekStart, i));
 }
 
-const isWeekday = (weekStart: string, day: string) => {
-  const index = weekDays(weekStart).indexOf(day);
-  return index >= 0 && index < 5;
-};
 
 /**
  * Where the prep session can go: the Sunday before the week, or any day
@@ -56,10 +52,13 @@ export function prepDayOptions(weekStart: string, today: string): string[] {
   return [first, ...weekDays(weekStart)].filter((day) => day >= today);
 }
 
-/** The Sunday before, if it's still ahead; otherwise today. */
+/**
+ * The Sunday before, if it's still ahead; otherwise today. A week that's
+ * already over (recording one after the fact) keeps the Sunday before.
+ */
 export function defaultPrepDay(weekStart: string, today: string): string {
   const options = prepDayOptions(weekStart, today);
-  return options[0] ?? today;
+  return options[0] ?? addDaysISO(weekStart, -1);
 }
 
 /** Splits days into `parts` runs, as even as possible, longest first. */
@@ -105,56 +104,156 @@ function makeDayFor(meal: PrepMeal, eatDays: string[], prepOn: string): string |
   return null;
 }
 
+/**
+ * How each meal of the week gets made (Phase 19). The plan always runs
+ * seven days; what you choose is how often you cook, not how many kinds.
+ */
+export const BREAKFAST_MODES = ["quick", "make_ahead", "none"] as const;
+export const LUNCH_MODES = ["prep_twice", "every_other_day", "daily", "none"] as const;
+export const DINNER_MODES = ["nightly", "every_other_night", "prep_some", "none"] as const;
+export type BreakfastMode = (typeof BREAKFAST_MODES)[number];
+export type LunchMode = (typeof LUNCH_MODES)[number];
+export type DinnerMode = (typeof DINNER_MODES)[number];
+
+export interface WeekStyle {
+  breakfast: BreakfastMode;
+  lunch: LunchMode;
+  dinner: DinnerMode;
+}
+
+/** Quick breakfasts, lunch prepped twice, dinner cooked each night. */
+export const DEFAULT_STYLE: WeekStyle = { breakfast: "quick", lunch: "prep_twice", dinner: "nightly" };
+
+/** Anything stored or submitted, made into a valid style. */
+export function normaliseStyle(input: Partial<Record<keyof WeekStyle, unknown>> | null | undefined): WeekStyle {
+  const pick = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
+    typeof value === "string" && (allowed as readonly string[]).includes(value) ? (value as T) : fallback;
+  return {
+    breakfast: pick(input?.breakfast, BREAKFAST_MODES, DEFAULT_STYLE.breakfast),
+    lunch: pick(input?.lunch, LUNCH_MODES, DEFAULT_STYLE.lunch),
+    dinner: pick(input?.dinner, DINNER_MODES, DEFAULT_STYLE.dinner),
+  };
+}
+
+/** Quick breakfasts and fresh lunches: hands-on minutes at most. */
+export const QUICK_MINUTES = { breakfast: 10, lunch: 15 } as const;
+
+/** Every planned meal: twenty minutes at the stove or less. */
+export const MAX_HANDS_ON_MINUTES = 20;
+
+/** The days a plan starting on `prepOn` covers: the week, from the prep day on. */
+export function planDays(weekStart: string, prepOn: string): string[] {
+  return weekDays(weekStart).filter((day) => day >= prepOn);
+}
+
+/**
+ * How many different meals each slot needs. Dinners are a different
+ * meal each time they're cooked; lunches and breakfasts rotate two or
+ * three, because the same lunch twice in a week is a feature.
+ */
+export function mealsNeeded(style: WeekStyle, dayCount: number): Record<PlannedSlot, number> {
+  const n = Math.max(0, dayCount);
+  const breakfast = { quick: Math.min(2, n), make_ahead: n > FRIDGE_DAYS ? 2 : Math.min(1, n), none: 0 }[style.breakfast];
+  const lunch = {
+    prep_twice: Math.min(2, n),
+    every_other_day: Math.min(2, Math.ceil(n / 2)),
+    daily: Math.min(3, n),
+    none: 0,
+  }[style.lunch];
+  const dinner = { nightly: n, every_other_night: Math.ceil(n / 2), prep_some: n, none: 0 }[style.dinner];
+  return { breakfast, lunch, dinner };
+}
+
+/** Days shared out one at a time, so two breakfasts alternate. */
+function alternate(days: string[], parts: number): string[][] {
+  return Array.from({ length: parts }, (_, i) => days.filter((_, index) => index % parts === i)).filter(
+    (run) => run.length > 0,
+  );
+}
+
 export function assignWeek(input: {
   weekStart: string;
   prepOn: string;
+  style?: WeekStyle;
   breakfasts: PrepMeal[];
   lunches: PrepMeal[];
   dinners: PrepMeal[];
 }): DayPlanEntry[] {
   const { weekStart, prepOn } = input;
+  const style = input.style ?? DEFAULT_STYLE;
   // Days already behind the session aren't planned: a mid-week plan
-  // starts from the prep day.
-  const days = weekDays(weekStart).filter((day) => day >= prepOn);
+  // starts from the prep day. Every slot covers every day from there.
+  const days = planDays(weekStart, prepOn);
   const entries: DayPlanEntry[] = [];
 
-  // Breakfasts and lunches: each variety covers a run of days.
-  const lunchDays = days.filter((day) => isWeekday(weekStart, day));
-  for (const [slot, meals, cover] of [
-    ["breakfast", input.breakfasts, days],
-    ["lunch", input.lunches, lunchDays.length > 0 ? lunchDays : days],
-  ] as const) {
-    const runs = splitDays(cover, meals.length);
-    meals.forEach((meal, i) => {
-      const run = runs[i] ?? [];
-      // A batch that won't keep the whole run is made again part-way:
-      // oats Monday to Wednesday from the session, Thursday's the
-      // evening before.
-      const batches =
-        meal.batchFriendly && !meal.freezerFriendly ? chunk(run, FRIDGE_DAYS) : [run];
-      for (const eatDays of batches) {
-        entries.push({ mealId: meal.id, slot, eatDays, makeOn: makeDayFor(meal, eatDays, prepOn) });
-      }
+  /** A batch per run, made at the session or the evening before; re-made part-way if it won't keep. */
+  const batch = (slot: PlannedSlot, meal: PrepMeal, run: string[]) => {
+    const pieces = meal.batchFriendly && !meal.freezerFriendly ? chunk(run, FRIDGE_DAYS) : [run];
+    for (const eatDays of pieces) {
+      entries.push({ mealId: meal.id, slot, eatDays, makeOn: makeDayFor(meal, eatDays, prepOn) });
+    }
+  };
+  /** Made fresh on each day it's eaten. */
+  const fresh = (slot: PlannedSlot, meal: PrepMeal, eatDays: string[]) => {
+    if (eatDays.length > 0) entries.push({ mealId: meal.id, slot, eatDays, makeOn: null });
+  };
+  const cycle = <T,>(list: T[], i: number) => list[i % list.length];
+
+  // Breakfasts.
+  const breakfasts = input.breakfasts;
+  if (breakfasts.length > 0 && style.breakfast === "quick") {
+    alternate(days, breakfasts.length).forEach((run, i) => fresh("breakfast", breakfasts[i], run));
+  } else if (breakfasts.length > 0 && style.breakfast === "make_ahead") {
+    splitDays(days, breakfasts.length).forEach((run, i) => batch("breakfast", breakfasts[i], run));
+  }
+
+  // Lunches: all seven days.
+  const lunches = input.lunches;
+  if (lunches.length > 0 && style.lunch === "prep_twice") {
+    // The longer run goes to a meal that freezes, where there is one,
+    // so the second half of it keeps without a third cook.
+    const ordered = [...lunches].sort((a, b) => Number(b.freezerFriendly) - Number(a.freezerFriendly));
+    splitDays(days, ordered.length).forEach((run, i) => batch("lunch", ordered[i], run));
+  } else if (lunches.length > 0 && style.lunch === "every_other_day") {
+    // Cooked every other day means just that: the first pair from the
+    // prep session, each later pair the evening before, even if it
+    // would freeze.
+    chunk(days, 2).forEach((run, i) => {
+      const evening = addDaysISO(run[0], -1);
+      const makeOn = i === 0 && run[0] > prepOn ? prepOn : evening >= prepOn ? evening : null;
+      entries.push({ mealId: cycle(lunches, i).id, slot: "lunch", eatDays: run, makeOn });
+    });
+  } else if (lunches.length > 0 && style.lunch === "daily") {
+    alternate(days, lunches.length).forEach((run, i) => fresh("lunch", lunches[i], run));
+  }
+
+  // Dinners.
+  const dinners = input.dinners;
+  if (dinners.length > 0 && style.dinner === "nightly") {
+    days.forEach((day, i) => fresh("dinner", cycle(dinners, i), [day]));
+  } else if (dinners.length > 0 && style.dinner === "every_other_night") {
+    // Cooked on the first night of each pair, warmed up on the second.
+    chunk(days, 2).forEach((run, i) =>
+      entries.push({ mealId: cycle(dinners, i).id, slot: "dinner", eatDays: run, makeOn: run[0] }),
+    );
+  } else if (dinners.length > 0 && style.dinner === "prep_some") {
+    // The session takes the batch-friendly ones that keep, up to two;
+    // the rest are cooked on the night.
+    let prepped = 0;
+    days.forEach((day, i) => {
+      const meal = cycle(dinners, i);
+      const ahead = prepped < MAX_PREPPED_DINNERS && day > prepOn && keepsUntil(meal, prepOn, [day]);
+      if (ahead) prepped++;
+      entries.push({ mealId: meal.id, slot: "dinner", eatDays: [day], makeOn: ahead ? prepOn : null });
     });
   }
 
-  // Dinners: one night each, from the first planned day. The session
-  // takes the batch-friendly ones that keep, up to two; the rest are
-  // cooked on the night. Dinners beyond the days left stay spare.
-  let prepped = 0;
-  input.dinners.forEach((meal, i) => {
-    const day = days[i];
-    if (!day) {
-      entries.push({ mealId: meal.id, slot: "dinner", eatDays: [], makeOn: null });
-      return;
-    }
-    const ahead =
-      prepped < MAX_PREPPED_DINNERS && day > prepOn && keepsUntil(meal, prepOn, [day]);
-    if (ahead) prepped++;
-    entries.push({ mealId: meal.id, slot: "dinner", eatDays: [day], makeOn: ahead ? prepOn : null });
-  });
-
   return entries;
+}
+
+/** Cooked and eaten the same day (tonight's dinner that's tomorrow's too): not a batch for later. */
+export function cookedOnTheDay(row: { makeOn: string | null; eatDays: readonly string[] | null }): boolean {
+  return row.makeOn !== null && (row.eatDays ?? []).includes(row.makeOn);
 }
 
 /** Minutes per extra dish for switching between them and portioning up. */

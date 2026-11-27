@@ -176,12 +176,11 @@ export async function buildDemo(today: string = todayInTimeZone()): Promise<void
 
   // This week's food: planned, part cooked, part shopped.
   const weekStart = startOfWeekISO(today);
-  // Prepped on the Sunday before, with breakfasts; the list is built,
-  // as if Alex tapped "Make my list" before shopping.
+  // Quick breakfasts, lunches prepped twice (the first on the Sunday
+  // before), dinner cooked each night; the list is built, as if Alex
+  // tapped "Make my list" before shopping.
   const week = await generateWeekPlan(weekStart, {
-    dinners: 4,
-    lunches: 1,
-    breakfasts: 2,
+    style: { breakfast: "quick", lunch: "prep_twice", dinner: "nightly" },
     prepOn: addDaysISO(weekStart, -1),
   });
   await buildShoppingList(weekStart);
